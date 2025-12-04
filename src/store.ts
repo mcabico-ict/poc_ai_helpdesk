@@ -7,6 +7,7 @@ const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw1owYiLKokfM
 
 /* 
    IMPORTANT: UPDATE YOUR GOOGLE APPS SCRIPT WITH THE CODE IN google_apps_script.js 
+   AND DEPLOY AS A NEW VERSION.
 */
 
 type Listener = () => void;
@@ -159,18 +160,14 @@ class TicketStore {
           const reader = new FileReader();
           reader.readAsDataURL(file);
           reader.onload = async () => {
-              const base64Content = (reader.result as string).split(',')[1];
               try {
-                  // NOTE: 'no-cors' mode prevents reading the response, but we need the URL.
-                  // Google Apps Script must be deployed as "Anyone" for CORS to allow simple requests, 
-                  // OR we just assume it works and return a placeholder if we can't read it.
-                  // However, for file upload, we usually need the resulting URL. 
-                  // If 'no-cors' is used, we CANNOT get the URL back.
-                  // Therefore, we try standard fetch. If CORS fails, the user needs to check GAS deployment.
+                  const base64Content = (reader.result as string).split(',')[1];
                   
+                  console.log(`Uploading ${file.name} (${file.size} bytes) to GAS...`);
+
                   const response = await fetch(GOOGLE_SCRIPT_URL, {
                       method: "POST",
-                      headers: { "Content-Type": "text/plain;charset=utf-8" }, // Use text/plain to avoid preflight
+                      headers: { "Content-Type": "text/plain;charset=utf-8" },
                       body: JSON.stringify({
                           action: "upload",
                           fileName: file.name,
@@ -179,17 +176,23 @@ class TicketStore {
                       })
                   });
 
-                  if (!response.ok) throw new Error("Upload failed");
-                  
-                  const data = await response.json();
+                  const text = await response.text();
+                  let data;
+                  try {
+                      data = JSON.parse(text);
+                  } catch(e) {
+                      console.error("GAS Response not JSON:", text);
+                      throw new Error("Server returned unexpected response. Please ensuring you deployed the Google Apps Script as a 'New Version'.");
+                  }
+
                   if (data.success && data.url) {
                       resolve(data.url);
                   } else {
-                      reject("Server did not return a URL");
+                      throw new Error(data.error || "Server did not return a URL");
                   }
-              } catch (e) {
-                  console.error("Upload error", e);
-                  reject(e);
+              } catch (e: any) {
+                  console.error("Upload error details:", e);
+                  reject(e.message || e);
               }
           };
           reader.onerror = error => reject(error);

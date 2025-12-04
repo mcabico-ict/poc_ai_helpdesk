@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, AlertCircle, Paperclip, FileText } from 'lucide-react';
 import { geminiService } from '../services/geminiService';
@@ -89,7 +90,6 @@ const AIChat: React.FC = () => {
           const url = await ticketStore.uploadFile(file);
           
           // Insert a system message into chat history so AI knows about the file
-          const systemMsg = `[System] User uploaded file: ${file.name}. URL: ${url}`;
           
           const fileMessage: ChatMessage = {
               id: Date.now().toString(),
@@ -117,9 +117,9 @@ const AIChat: React.FC = () => {
           };
           setMessages(prev => [...prev, botMessage]);
 
-      } catch (error) {
+      } catch (error: any) {
           console.error(error);
-          alert("Failed to upload file. Please check your network or try a smaller file.");
+          alert(`Failed to upload: ${error}\n\nTroubleshooting:\n1. Did you deploy a "New Version" in Apps Script?\n2. Does your account have Edit access to the Google Drive folder?`);
       } finally {
           setIsUploading(false);
           setIsLoading(false);
