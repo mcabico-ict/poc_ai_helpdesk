@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, FunctionDeclaration, Type, Tool } from "@google/genai";
 import { ticketStore } from "../store";
 import { TicketSeverity } from "../types";
@@ -117,15 +118,15 @@ export class GeminiService {
 
   constructor() {
     // In Vite, env vars are exposed via import.meta.env, but we will handle process.env for compatibility
-    // with the build step we are about to create.
     this.apiKey = process.env.API_KEY || ''; 
     this.client = new GoogleGenAI({ apiKey: this.apiKey });
   }
 
   async sendMessage(history: { role: string; parts: { text: string }[] }[], newMessage: string) {
-    // Check key availability
+    // Check key availability with a clear error message
     if (!this.apiKey) {
-        return { text: "Error: API Key is missing. Please ensure the app is built with the API_KEY environment variable.", isToolResponse: false }
+        console.error("API_KEY is missing in process.env");
+        return { text: "System Configuration Error: API Key is missing. Please contact the administrator to configure the 'API_KEY' environment variable.", isToolResponse: false }
     }
 
     try {
@@ -165,6 +166,10 @@ export class GeminiService {
             else if (fc.name === 'searchTickets') {
                 const args = fc.args as any;
                 const tickets = ticketStore.searchTickets(args.query);
+                
+                // TRIGGER UI: Set the current user context so the Ticket Window opens
+                ticketStore.setCurrentUserQuery(args.query);
+
                 responseContent = JSON.stringify(tickets);
             }
             else if (fc.name === 'createTicket') {
@@ -183,6 +188,10 @@ export class GeminiService {
                         superiorContact: args.superiorContact, // Required
                         troubleshootingLog: args.troubleshootingLog || "No steps recorded."
                     });
+                    
+                    // TRIGGER UI: Ensure the user sees their new ticket
+                    ticketStore.setCurrentUserQuery(args.requester);
+
                     // IMPORTANT: Return the ID so the model memorizes it for Phase 2
                     responseContent = JSON.stringify({ success: true, ticketId: newTicket.id, message: "Ticket created. ID held in context for updates." });
                 } catch (e) {
@@ -214,7 +223,7 @@ export class GeminiService {
 
     } catch (error) {
       console.error("Gemini API Error:", error);
-      return { text: "System error. Please try again." };
+      return { text: "I encountered a system error connecting to the AI service. Please try again or contact IT support." };
     }
   }
 }

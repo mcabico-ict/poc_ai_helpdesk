@@ -1,3 +1,4 @@
+
 import { Ticket, TicketSeverity, TicketStatus } from "./types";
 
 // The Google Apps Script Web App URL provided by the user (New Deployment)
@@ -16,6 +17,9 @@ class TicketStore {
   private listeners: Listener[] = [];
   private isLoading: boolean = false;
   private error: string | null = null;
+  
+  // New state to track the currently identified user (PIN or Email) from the Chat
+  private currentUserQuery: string | null = null;
 
   constructor() {
     this.fetchTickets();
@@ -27,6 +31,16 @@ class TicketStore {
 
   getTicketById(id: string): Ticket | undefined {
     return this.tickets.find(t => t.id === id);
+  }
+
+  // Set the context when AI identifies a user
+  setCurrentUserQuery(query: string | null) {
+    this.currentUserQuery = query;
+    this.notify();
+  }
+
+  getCurrentUserQuery(): string | null {
+    return this.currentUserQuery;
   }
 
   // New method to search tickets

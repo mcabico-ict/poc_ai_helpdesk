@@ -6,6 +6,8 @@
 # Stop on any error
 set -e
 
+git commit -a
+
 echo "🚀 Starting Deployment..."
 
 # 1. Pull latest code
