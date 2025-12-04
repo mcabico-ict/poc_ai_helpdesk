@@ -8,7 +8,7 @@ const AIChat: React.FC = () => {
     {
       id: '1',
       role: 'model',
-      content: 'Hello! I am the UBI Tech Support AI. I can create tickets, check status via ID or PID/PIN, or guide you through troubleshooting. How can I assist you?',
+      content: 'Hello! I am the UBI Tech Support Assistant. To assist you better, could you please tell me your name and how you would like to be addressed (e.g., Mr., Ms., Engr.)?',
       timestamp: new Date()
     }
   ]);
