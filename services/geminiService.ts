@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, FunctionDeclaration, Type, Tool } from "@google/genai";
 import { ticketStore } from "../store";
 import { TicketSeverity } from "../types";
