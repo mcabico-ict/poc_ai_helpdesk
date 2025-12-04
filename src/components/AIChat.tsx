@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 import { geminiService } from '../services/geminiService';
@@ -45,10 +44,15 @@ const AIChat: React.FC = () => {
     setIsLoading(true);
 
     try {
-        const history = messages.map(m => ({
-            role: m.role,
-            parts: [{ text: m.content }]
-        }));
+        // FILTER HISTORY: Remove the initial UI greeting (id: '1').
+        // Gemini API expects history to often start with User, or be alternating.
+        // Sending the initial 'model' greeting before any user message can cause 400 Bad Request.
+        const history = messages
+            .filter(m => m.id !== '1')
+            .map(m => ({
+                role: m.role,
+                parts: [{ text: m.content }]
+            }));
 
         const result = await geminiService.sendMessage(history, userMessage.content);
         

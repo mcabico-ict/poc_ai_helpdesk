@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ticketStore } from '../store';
 import { Ticket, TicketStatus, TicketSeverity } from '../types';
@@ -52,7 +51,7 @@ const TicketManager: React.FC = () => {
       }
   };
   
-  // If no user identified OR no tickets found for that user, Hide the window
+  // LOGIC: If no user identified OR no tickets found for that user, Hide the window
   if (!currentUserQuery || filteredTickets.length === 0) {
       return null;
   }

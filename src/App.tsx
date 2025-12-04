@@ -1,4 +1,3 @@
-
 import React from 'react';
 import TicketManager from './components/TicketManager';
 import AIChat from './components/AIChat';

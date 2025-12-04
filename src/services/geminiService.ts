@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, FunctionDeclaration, Type, Tool } from "@google/genai";
 import { ticketStore } from "../store";
 import { TicketSeverity } from "../types";
@@ -62,7 +61,6 @@ const createTicketTool: FunctionDeclaration = {
       superiorContact: { type: Type.STRING, description: "Superior Email (Required)." },
       troubleshootingLog: { type: Type.STRING, description: "Summary of steps taken BEFORE ticket creation." }
     },
-    // Removed immediateSuperior from required list
     required: ["requester", "pid", "subject", "category", "description", "location", "severity", "contactNumber", "superiorContact"]
   }
 };
@@ -117,19 +115,18 @@ export class GeminiService {
   private apiKey: string;
 
   constructor() {
-    // In Vite, env vars are exposed via import.meta.env, but we will handle process.env for compatibility
     this.apiKey = process.env.API_KEY || ''; 
     this.client = new GoogleGenAI({ apiKey: this.apiKey });
   }
 
   async sendMessage(history: { role: string; parts: { text: string }[] }[], newMessage: string) {
-    // Check key availability with a clear error message
     if (!this.apiKey) {
         console.error("API_KEY is missing in process.env");
-        return { text: "System Configuration Error: API Key is missing. Please contact the administrator to configure the 'API_KEY' environment variable.", isToolResponse: false }
+        return { text: "System Configuration Error: API Key is missing.", isToolResponse: false }
     }
 
     try {
+      // Ensure history is correctly formatted for the SDK
       const formattedHistory = history.map(h => ({
         role: h.role,
         parts: h.parts
@@ -184,15 +181,14 @@ export class GeminiService {
                         location: args.location,
                         severity: (args.severity as TicketSeverity) || TicketSeverity.MINOR,
                         contactNumber: args.contactNumber,
-                        immediateSuperior: args.immediateSuperior || "", // Optional
-                        superiorContact: args.superiorContact, // Required
+                        immediateSuperior: args.immediateSuperior || "",
+                        superiorContact: args.superiorContact,
                         troubleshootingLog: args.troubleshootingLog || "No steps recorded."
                     });
                     
                     // TRIGGER UI: Ensure the user sees their new ticket
                     ticketStore.setCurrentUserQuery(args.requester);
 
-                    // IMPORTANT: Return the ID so the model memorizes it for Phase 2
                     responseContent = JSON.stringify({ success: true, ticketId: newTicket.id, message: "Ticket created. ID held in context for updates." });
                 } catch (e) {
                     responseContent = JSON.stringify({ error: "Failed to create ticket." });
@@ -221,9 +217,11 @@ export class GeminiService {
 
       return { text: result.text, isToolResponse: false };
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Gemini API Error:", error);
-      return { text: "I encountered a system error connecting to the AI service. Please try again or contact IT support." };
+      // Return the specific error message to help debugging (e.g., 400 Invalid Argument, 403 Forbidden)
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      return { text: `System Error: ${errorMessage}. Please try again.` };
     }
   }
 }
