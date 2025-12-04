@@ -6,7 +6,7 @@
 # Stop on any error
 set -e
 
-git commit -a
+# git commit -a # Optional: Commit strictly only if you are on dev machine
 
 echo "🚀 Starting Deployment..."
 
@@ -26,8 +26,21 @@ npm install
 
 # 4. Build the Application
 echo "🛠️ Building App..."
-# Replace this with your actual API key
-export API_KEY="AIzaSyBFWchmXp4FdZbN4ZPnXUUvcFdS50M7NgI"
+
+# SAFETY CHECK: Look for API Key in environment or .env file
+if [ -z "$API_KEY" ]; then
+  if [ -f .env ]; then
+    echo "🔑 Loading API Key from .env file..."
+    export $(grep -v '^#' .env | xargs)
+  fi
+fi
+
+if [ -z "$API_KEY" ]; then
+  echo "❌ Error: API_KEY is missing!"
+  echo "   Please create a .env file on the server with: API_KEY=your_key"
+  exit 1
+fi
+
 npm run build
 
 # 5. Deploy to Web Server
