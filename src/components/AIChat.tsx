@@ -1,6 +1,8 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { Send, Bot, User, Loader2, Sparkles, AlertCircle, Paperclip, FileText } from 'lucide-react';
 import { geminiService } from '../services/geminiService';
+import { ticketStore } from '../store';
 import { ChatMessage } from '../types';
 
 const AIChat: React.FC = () => {
@@ -14,9 +16,11 @@ const AIChat: React.FC = () => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -44,9 +48,6 @@ const AIChat: React.FC = () => {
     setIsLoading(true);
 
     try {
-        // FILTER HISTORY: Remove the initial UI greeting (id: '1').
-        // Gemini API expects history to often start with User, or be alternating.
-        // Sending the initial 'model' greeting before any user message can cause 400 Bad Request.
         const history = messages
             .filter(m => m.id !== '1')
             .map(m => ({
@@ -76,6 +77,55 @@ const AIChat: React.FC = () => {
     } finally {
         setIsLoading(false);
     }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setIsUploading(true);
+      
+      try {
+          const url = await ticketStore.uploadFile(file);
+          
+          // Insert a system message into chat history so AI knows about the file
+          const systemMsg = `[System] User uploaded file: ${file.name}. URL: ${url}`;
+          
+          const fileMessage: ChatMessage = {
+              id: Date.now().toString(),
+              role: 'user', // We mark it as user role so Gemini processes it as part of the user's input/context
+              content: `I have uploaded a file: ${file.name}. URL: ${url}`,
+              timestamp: new Date()
+          };
+          
+          setMessages(prev => [...prev, fileMessage]);
+          
+          // Trigger AI response acknowledging the file
+          setIsLoading(true);
+          const history = messages.filter(m => m.id !== '1').map(m => ({ role: m.role, parts: [{ text: m.content }] }));
+          // Add the file message to history
+          history.push({ role: 'user', parts: [{ text: fileMessage.content }] });
+          
+          const result = await geminiService.sendMessage(history, "I uploaded a file.");
+          
+          const botMessage: ChatMessage = {
+                id: (Date.now() + 1).toString(),
+                role: 'model',
+                content: result.text || "File received.",
+                timestamp: new Date(),
+                isToolCall: result.isToolResponse
+          };
+          setMessages(prev => [...prev, botMessage]);
+
+      } catch (error) {
+          console.error(error);
+          alert("Failed to upload file. Please check your network or try a smaller file.");
+      } finally {
+          setIsUploading(false);
+          setIsLoading(false);
+          // Reset input
+          if (fileInputRef.current) fileInputRef.current.value = '';
+      }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -121,12 +171,17 @@ const AIChat: React.FC = () => {
                                 ? 'text-white bg-gray-900 p-4 rounded-2xl rounded-tr-sm' 
                                 : 'text-gray-700 bg-white border border-gray-100 p-4 rounded-2xl rounded-tl-sm'
                         }`}>
-                            {msg.content}
+                            {msg.content.includes("URL: http") ? (
+                                <div className="flex items-center gap-2">
+                                    <FileText size={16} />
+                                    <span>Attachment Uploaded</span>
+                                </div>
+                            ) : msg.content}
                         </div>
                         {msg.isToolCall && (
                             <div className="text-[10px] text-blue-500 font-bold flex items-center gap-1.5 opacity-80 px-1">
                                 <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
-                                Accessing Ticket Database...
+                                Accessing Database...
                             </div>
                         )}
                     </div>
@@ -134,13 +189,15 @@ const AIChat: React.FC = () => {
             </div>
             ))}
             
-            {isLoading && (
+            {(isLoading || isUploading) && (
                 <div className="flex justify-start">
                     <div className="flex max-w-[85%] gap-4">
                         <div className="w-8 h-8 rounded-full bg-white border border-gray-100 flex items-center justify-center shrink-0 mt-1 text-blue-600 shadow-sm">
                             <Loader2 size={14} className="animate-spin" />
                         </div>
-                        <div className="text-sm text-gray-400 mt-2 font-medium animate-pulse">Thinking...</div>
+                        <div className="text-sm text-gray-400 mt-2 font-medium animate-pulse">
+                            {isUploading ? "Uploading file..." : "Thinking..."}
+                        </div>
                     </div>
                 </div>
             )}
@@ -150,25 +207,42 @@ const AIChat: React.FC = () => {
 
       {/* Input */}
       <div className="p-6 bg-white border-t border-gray-100">
-        <div className="relative max-w-3xl mx-auto">
-            <input
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Type your message..."
-                className="w-full bg-gray-50 border-0 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-100 focus:bg-white block p-4 pr-12 transition-all placeholder:text-gray-400 shadow-inner"
-                disabled={isLoading}
-                autoFocus
-            />
+        <div className="relative max-w-3xl mx-auto flex items-center gap-2">
             <button 
-                onClick={handleSend}
-                disabled={!input.trim() || isLoading}
-                className="absolute right-2 top-2 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg disabled:opacity-30 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading || isUploading}
+                className="p-3 bg-gray-100 text-gray-500 rounded-xl hover:bg-gray-200 transition-colors"
+                title="Attach file"
             >
-                <Send size={18} />
+                <Paperclip size={20} />
             </button>
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                onChange={handleFileUpload}
+            />
+
+            <div className="relative flex-1">
+                <input
+                    ref={inputRef}
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Type your message..."
+                    className="w-full bg-gray-50 border-0 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-100 focus:bg-white block p-4 pr-12 transition-all placeholder:text-gray-400 shadow-inner"
+                    disabled={isLoading || isUploading}
+                    autoFocus
+                />
+                <button 
+                    onClick={handleSend}
+                    disabled={!input.trim() || isLoading || isUploading}
+                    className="absolute right-2 top-2 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg disabled:opacity-30 transition-colors"
+                >
+                    <Send size={18} />
+                </button>
+            </div>
         </div>
         <div className="text-center mt-3 flex items-center justify-center gap-1.5 opacity-40 hover:opacity-100 transition-opacity duration-300">
              <AlertCircle size={10} className="text-gray-500"/>

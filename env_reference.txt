@@ -1,0 +1,9 @@
+# SECURITY WARNING: DO NOT COMMIT THE .env FILE TO GIT
+# This file contains secrets that should only exist on your local machine or server.
+
+# INSTRUCTIONS:
+# 1. Create a file named ".env" in the root directory of your project.
+# 2. Copy the line below into that file.
+# 3. Replace 'REPLACE_WITH_YOUR_NEW_API_KEY' with your actual Google GenAI API Key.
+
+API_KEY=REPLACE_WITH_YOUR_NEW_API_KEY

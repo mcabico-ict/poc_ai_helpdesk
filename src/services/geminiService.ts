@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, FunctionDeclaration, Type, Tool } from "@google/genai";
 import { ticketStore } from "../store";
 import { TicketSeverity } from "../types";
@@ -42,6 +43,20 @@ const updateTicketLogTool: FunctionDeclaration = {
   }
 };
 
+// Tool: Close Ticket
+const closeTicketTool: FunctionDeclaration = {
+  name: "closeTicket",
+  description: "Closes a ticket. Use this when the issue is resolved or the user explicitly asks to close a ticket.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      ticketId: { type: Type.STRING, description: "The Ticket ID to close." },
+      reason: { type: Type.STRING, description: "The reason for closing (e.g., 'Resolved by user', 'Hardware replaced')." }
+    },
+    required: ["ticketId", "reason"]
+  }
+};
+
 // Tool: Create Ticket
 const createTicketTool: FunctionDeclaration = {
   name: "createTicket",
@@ -54,12 +69,17 @@ const createTicketTool: FunctionDeclaration = {
       subject: { type: Type.STRING, description: "Issue summary." },
       category: { type: Type.STRING, description: "Asset category." },
       description: { type: Type.STRING, description: "Detailed description." },
-      location: { type: Type.STRING, description: "Physical location." },
+      location: { type: Type.STRING, description: "Physical location or Department." },
       severity: { type: Type.STRING, enum: ["Minor", "Major", "Critical"], description: "Urgency." },
       contactNumber: { type: Type.STRING, description: "Mobile number." },
       immediateSuperior: { type: Type.STRING, description: "Superior Name (Optional)." },
       superiorContact: { type: Type.STRING, description: "Superior Email (Required)." },
-      troubleshootingLog: { type: Type.STRING, description: "Summary of steps taken BEFORE ticket creation." }
+      troubleshootingLog: { type: Type.STRING, description: "Summary of steps taken BEFORE ticket creation." },
+      attachmentUrl: { type: Type.STRING, description: "URL of any file uploaded by the user." },
+      // New fields for Account Support
+      requesterName: { type: Type.STRING, description: "Full Name of the user (Required for Account/Acumatica support)." },
+      position: { type: Type.STRING, description: "Job Position (Required for Account/Acumatica support)." },
+      department: { type: Type.STRING, description: "Department or Project Name." }
     },
     required: ["requester", "pid", "subject", "category", "description", "location", "severity", "contactNumber", "superiorContact"]
   }
@@ -67,7 +87,7 @@ const createTicketTool: FunctionDeclaration = {
 
 const tools: Tool[] = [
   {
-    functionDeclarations: [getTicketDetailsTool, searchTicketsTool, createTicketTool, updateTicketLogTool]
+    functionDeclarations: [getTicketDetailsTool, searchTicketsTool, createTicketTool, updateTicketLogTool, closeTicketTool]
   }
 ];
 
@@ -78,33 +98,27 @@ You are the "UBI IT Support Assistant".
 - **Start** by asking for the user's name and preferred title (e.g., "Mr.", "Ms.", "Engr.").
 - Address the user by this name/title throughout the conversation.
 
-**SCOPE & BOUNDARIES (STRICT)**
+**SCOPE & BOUNDARIES**
 - **ALLOWED**: 
   - IT Assets: Laptops, Desktops, Printers, Servers, CCTV.
-  - Services: Acumatica ERP, UBIAS (UBI Automated Systems), Workspace/Corporate Email, Drone shots, Office Support (Conference setup).
+  - Services: **Acumatica ERP**, UBIAS, Workspace/Corporate Email, Drone shots, Office Support.
+  - Account Support: Password resets, access requests.
 - **PROHIBITED**: 
-  - Appliances: **Rice Cookers, Ovens, Microwaves**, Refrigerators.
-  - Personal devices not issued by the company.
-  - **Action**: If a user reports a prohibited item (e.g., Rice Cooker), politely decline and explain you only support IT assets. **DO NOT** create a ticket.
+  - Appliances: Rice Cookers, Ovens, Microwaves, Refrigerators.
+  - Personal devices.
 
-**KNOWN ISSUES & TROUBLESHOOTING**
-1.  **Slow Excel**: If Excel is slow after downloading from Acumatica, suggest removing white spaces and clearing formatting to reduce file size.
-2.  **IP Phones**: If delayed or laggy, suggest a restart.
-3.  **Printers**: If print quality is poor, suggest cleaning (via software or basic external cleaning). Check if the correct printer is selected.
-4.  **General**: Suggest safe workarounds.
+**DATA REQUIREMENTS (STRICT)**
+1.  **General Hardware**: PID, PIN/Email, Location, Mobile Number, Superior Email.
+2.  **Account/Acumatica Support**: You **MUST** ask for **Full Name**, **Department/Project**, and **Position**. These are mandatory for account tickets.
 
 **CORE BEHAVIOR**
-1.  **Context Holding**: If you create a ticket, **HOLD that Ticket ID** in your immediate context.
-2.  **Lookup**: Use \`searchTickets\` if the user gives PID or PIN.
-3.  **Smart Classification**: Deduce Category/Severity from context.
-4.  **Mandatory Fields**: Require PID, PIN/Email, Location, Mobile Number.
-5.  **Superior Info**: You **MUST** ask for the **Immediate Superior's Email**.
+1.  **Context Holding**: If you create a ticket, **HOLD that Ticket ID**.
+2.  **Closing Tickets**: You are authorized to close ANY ticket if the user confirms it is resolved. Use \`closeTicket\`.
+3.  **Attachments**: If the user provides a file (or you see a "User uploaded file" message), include the URL in the \`createTicket\` call under \`attachmentUrl\`.
 
 **TROUBLESHOOTING LOGIC FLOW**
-1.  **Phase 1 (Pre-Ticket)**: Gather details. If user tries basic steps, log them in \`troubleshootingLog\`.
-2.  **Phase 2 (Post-Ticket)**: 
-    *   Suggest **safe workarounds** after creation.
-    *   **IF THE USER REPLIES**: Call \`updateTicketLog\` immediately with the result.
+1.  **Phase 1 (Pre-Ticket)**: Gather details. Log steps.
+2.  **Phase 2 (Post-Ticket)**: Suggest workarounds. If user replies, call \`updateTicketLog\`.
 
 **SAFETY**: No hardware opening. No dangerous tools.
 `;
@@ -120,17 +134,12 @@ export class GeminiService {
   }
 
   async sendMessage(history: { role: string; parts: { text: string }[] }[], newMessage: string) {
-    if (!this.apiKey) {
-        console.error("API_KEY is missing in process.env");
-        return { text: "System Configuration Error: API Key is missing.", isToolResponse: false }
+    if (!this.apiKey || this.apiKey.includes('REPLACE')) {
+        return { text: "Configuration Error: API Key missing or invalid.", isToolResponse: false };
     }
 
     try {
-      // Ensure history is correctly formatted for the SDK
-      const formattedHistory = history.map(h => ({
-        role: h.role,
-        parts: h.parts
-      }));
+      const formattedHistory = history.map(h => ({ role: h.role, parts: h.parts }));
 
       const chat = this.client.chats.create({
         model: this.modelName,
@@ -163,10 +172,7 @@ export class GeminiService {
             else if (fc.name === 'searchTickets') {
                 const args = fc.args as any;
                 const tickets = ticketStore.searchTickets(args.query);
-                
-                // TRIGGER UI: Set the current user context so the Ticket Window opens
                 ticketStore.setCurrentUserQuery(args.query);
-
                 responseContent = JSON.stringify(tickets);
             }
             else if (fc.name === 'createTicket') {
@@ -183,13 +189,14 @@ export class GeminiService {
                         contactNumber: args.contactNumber,
                         immediateSuperior: args.immediateSuperior || "",
                         superiorContact: args.superiorContact,
-                        troubleshootingLog: args.troubleshootingLog || "No steps recorded."
+                        troubleshootingLog: args.troubleshootingLog || "No steps recorded.",
+                        attachmentUrl: args.attachmentUrl,
+                        requesterName: args.requesterName,
+                        department: args.department,
+                        position: args.position
                     });
-                    
-                    // TRIGGER UI: Ensure the user sees their new ticket
                     ticketStore.setCurrentUserQuery(args.requester);
-
-                    responseContent = JSON.stringify({ success: true, ticketId: newTicket.id, message: "Ticket created. ID held in context for updates." });
+                    responseContent = JSON.stringify({ success: true, ticketId: newTicket.id, message: "Ticket created." });
                 } catch (e) {
                     responseContent = JSON.stringify({ error: "Failed to create ticket." });
                 }
@@ -197,7 +204,12 @@ export class GeminiService {
             else if (fc.name === 'updateTicketLog') {
                 const args = fc.args as any;
                 await ticketStore.updateTicketLog(args.ticketId, args.textToAppend);
-                responseContent = JSON.stringify({ success: true, message: `Log appended to Ticket ${args.ticketId}.` });
+                responseContent = JSON.stringify({ success: true });
+            }
+            else if (fc.name === 'closeTicket') {
+                const args = fc.args as any;
+                await ticketStore.closeTicket(args.ticketId, args.reason);
+                responseContent = JSON.stringify({ success: true, message: "Ticket Closed." });
             }
 
             functionResponses.push({
@@ -219,7 +231,6 @@ export class GeminiService {
 
     } catch (error: any) {
       console.error("Gemini API Error:", error);
-      // Return the specific error message to help debugging (e.g., 400 Invalid Argument, 403 Forbidden)
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       return { text: `System Error: ${errorMessage}. Please try again.` };
     }

@@ -1,3 +1,4 @@
+
 export enum AssetType {
   SYSTEM_UNIT = 'System Unit',
   PRINTER = 'Printer',
@@ -38,6 +39,7 @@ export interface Ticket {
   immediateSuperior?: string;
   superiorContact?: string;
   troubleshootingLog?: string;
+  attachmentUrl?: string; // New field for file attachment link
 }
 
 export interface PMSSchedule {

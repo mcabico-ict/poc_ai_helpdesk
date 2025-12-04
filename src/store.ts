@@ -1,13 +1,12 @@
 
+
 import { Ticket, TicketSeverity, TicketStatus } from "./types";
 
-// The Google Apps Script Web App URL provided by the user (New Deployment)
+// The Google Apps Script Web App URL
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw1owYiLKokfMrqpYkNNZpAw42Cs7oF03oxD6ZSLgGi6za3aeDeD4YpY5mX1ngv4-4Oog/exec";
 
 /* 
-   IMPORTANT: YOU MUST UPDATE YOUR GOOGLE APPS SCRIPT DEPLOYMENT!
-   1. Paste the code from the chat into Apps Script.
-   2. Deploy -> Manage Deployments -> Edit -> Version: "New version" -> Deploy.
+   IMPORTANT: UPDATE YOUR GOOGLE APPS SCRIPT WITH THE CODE IN google_apps_script.js 
 */
 
 type Listener = () => void;
@@ -33,7 +32,6 @@ class TicketStore {
     return this.tickets.find(t => t.id === id);
   }
 
-  // Set the context when AI identifies a user
   setCurrentUserQuery(query: string | null) {
     this.currentUserQuery = query;
     this.notify();
@@ -43,7 +41,6 @@ class TicketStore {
     return this.currentUserQuery;
   }
 
-  // New method to search tickets
   searchTickets(query: string): Ticket[] {
     if (!query) return [];
     const lowerQuery = query.toLowerCase().trim();
@@ -82,13 +79,13 @@ class TicketStore {
           ...t,
           id: String(t.id),
           pid: String(t.pid),
-          // FORCE STRING CONVERSION: Handles cases where Google Sheet returns a number (e.g. 40884)
           employeePin: t.employeePin ? String(t.employeePin) : undefined,
           requesterEmail: t.requesterEmail ? String(t.requesterEmail) : 'N/A',
           techNotes: t.techNotes || undefined,
           immediateSuperior: t.immediateSuperior || undefined,
           superiorContact: t.superiorContact || undefined,
-          troubleshootingLog: t.troubleshootingLog || undefined
+          troubleshootingLog: t.troubleshootingLog || undefined,
+          attachmentUrl: t.attachmentUrl || undefined
       })).reverse();
       
     } catch (err) {
@@ -100,13 +97,10 @@ class TicketStore {
     }
   }
 
-  // Update Ticket Log (Append Only)
   async updateTicketLog(ticketId: string, textToAppend: string) {
-    // 1. Format the log entry locally with timestamp
     const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     const formattedLogEntry = `[${timestamp}]: ${textToAppend}`;
 
-    // 2. Optimistic Update (Update UI immediately)
     const ticketIndex = this.tickets.findIndex(t => t.id === ticketId);
     if (ticketIndex !== -1) {
         const updatedTicket = { ...this.tickets[ticketIndex] };
@@ -115,7 +109,6 @@ class TicketStore {
         this.notify();
     }
 
-    // 3. Send to Google Sheet (Action: updateLog)
     try {
         await fetch(GOOGLE_SCRIPT_URL, {
             method: "POST",
@@ -124,18 +117,83 @@ class TicketStore {
             body: JSON.stringify({
                 action: "updateLog",
                 ticketId: ticketId,
-                // FIX: Sending BOTH property names to ensure compatibility with different script versions
                 textToAppend: formattedLogEntry, 
-                log: formattedLogEntry 
             }),
         });
-        
-        // Background refresh to confirm the sheet actually updated
         setTimeout(() => this.fetchTickets(), 3000);
-        
     } catch (err) {
         console.error("Failed to update log in Google Sheet", err);
     }
+  }
+
+  async closeTicket(ticketId: string, reason: string) {
+      // Optimistic Update
+      const ticketIndex = this.tickets.findIndex(t => t.id === ticketId);
+      if (ticketIndex !== -1) {
+          const updatedTicket = { ...this.tickets[ticketIndex] };
+          updatedTicket.status = TicketStatus.CLOSED;
+          updatedTicket.troubleshootingLog = (updatedTicket.troubleshootingLog || "") + `\n[System]: Closed - ${reason}`;
+          this.tickets[ticketIndex] = updatedTicket;
+          this.notify();
+      }
+
+      try {
+          await fetch(GOOGLE_SCRIPT_URL, {
+              method: "POST",
+              mode: "no-cors",
+              headers: {},
+              body: JSON.stringify({
+                  action: "closeTicket",
+                  ticketId: ticketId,
+                  reason: reason
+              }),
+          });
+          setTimeout(() => this.fetchTickets(), 3000);
+      } catch (err) {
+          console.error("Failed to close ticket", err);
+      }
+  }
+
+  async uploadFile(file: File): Promise<string> {
+      return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = async () => {
+              const base64Content = (reader.result as string).split(',')[1];
+              try {
+                  // NOTE: 'no-cors' mode prevents reading the response, but we need the URL.
+                  // Google Apps Script must be deployed as "Anyone" for CORS to allow simple requests, 
+                  // OR we just assume it works and return a placeholder if we can't read it.
+                  // However, for file upload, we usually need the resulting URL. 
+                  // If 'no-cors' is used, we CANNOT get the URL back.
+                  // Therefore, we try standard fetch. If CORS fails, the user needs to check GAS deployment.
+                  
+                  const response = await fetch(GOOGLE_SCRIPT_URL, {
+                      method: "POST",
+                      headers: { "Content-Type": "text/plain;charset=utf-8" }, // Use text/plain to avoid preflight
+                      body: JSON.stringify({
+                          action: "upload",
+                          fileName: file.name,
+                          mimeType: file.type,
+                          fileData: base64Content
+                      })
+                  });
+
+                  if (!response.ok) throw new Error("Upload failed");
+                  
+                  const data = await response.json();
+                  if (data.success && data.url) {
+                      resolve(data.url);
+                  } else {
+                      reject("Server did not return a URL");
+                  }
+              } catch (e) {
+                  console.error("Upload error", e);
+                  reject(e);
+              }
+          };
+          reader.onerror = error => reject(error);
+      });
   }
 
   async addTicket(ticketData: {
@@ -150,10 +208,21 @@ class TicketStore {
       immediateSuperior: string;
       superiorContact: string;
       troubleshootingLog: string;
+      attachmentUrl?: string; // Optional attachment
+      // New Account Fields
+      requesterName?: string;
+      department?: string;
+      position?: string;
   }): Promise<Ticket> {
     
     const isEmail = ticketData.requester.includes('@');
     
+    // Format Description to include Account Details if provided
+    let finalDescription = ticketData.description;
+    if (ticketData.requesterName || ticketData.position) {
+        finalDescription = `[Requester Info]\nName: ${ticketData.requesterName || 'N/A'}\nPosition: ${ticketData.position || 'N/A'}\nDept: ${ticketData.department || 'N/A'}\n\n[Issue]\n${ticketData.description}`;
+    }
+
     const initialLog = ticketData.troubleshootingLog || "No troubleshooting steps recorded by AI.";
 
     const newTicket: Ticket = {
@@ -166,14 +235,15 @@ class TicketStore {
       superiorContact: ticketData.superiorContact || '',
       subject: ticketData.subject,
       category: ticketData.category,
-      description: ticketData.description,
+      description: finalDescription,
       technician: 'Unassigned',
       location: ticketData.location,
       status: TicketStatus.OPEN,
       severity: ticketData.severity,
       contactNumber: ticketData.contactNumber,
       techNotes: '',
-      troubleshootingLog: initialLog
+      troubleshootingLog: initialLog,
+      attachmentUrl: ticketData.attachmentUrl
     };
 
     // Optimistic UI update
@@ -185,7 +255,7 @@ class TicketStore {
             method: "POST",
             mode: "no-cors",
             headers: {},
-            body: JSON.stringify(newTicket),
+            body: JSON.stringify({ ...newTicket, action: "create" }),
         });
         setTimeout(() => this.fetchTickets(), 2000);
     } catch (err) {
