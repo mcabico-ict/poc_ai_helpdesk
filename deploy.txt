@@ -18,7 +18,7 @@ rm -f index.tsx index.css types.ts store.ts constants.ts App.tsx
 rm -rf components services
 
 # 3. Install Dependencies
-echo "📦 Installing Dependencies..."
+echo "📦 Installing Dependencies... "
 rm -rf node_modules package-lock.json
 npm install
 
