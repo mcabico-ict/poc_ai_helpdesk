@@ -2,7 +2,7 @@ import { GoogleGenAI, FunctionDeclaration, Type, Tool } from "@google/genai";
 import { ticketStore } from "../store";
 import { TicketSeverity } from "../types";
 
-// Tool: Get Ticket Details
+// ... (Tools remain the same as previous, repeating for completeness of file replacement) ...
 const getTicketDetailsTool: FunctionDeclaration = {
   name: "getTicketDetails",
   description: "Retrieves details of a technical support ticket by its Ticket ID.",
@@ -14,35 +14,29 @@ const getTicketDetailsTool: FunctionDeclaration = {
     required: ["ticketId"]
   }
 };
-
-// Tool: Search Tickets
 const searchTicketsTool: FunctionDeclaration = {
   name: "searchTickets",
-  description: "Searches for tickets by Property ID (PID) or Employee PIN/Email when the user does not know the Ticket ID.",
+  description: "Searches for tickets by Property ID (PID) or Employee PIN/Email.",
   parameters: {
     type: Type.OBJECT,
     properties: {
-      query: { type: Type.STRING, description: "The PID, PIN, or Email to search for." }
+      query: { type: Type.STRING, description: "PID, PIN, or Email." }
     },
     required: ["query"]
   }
 };
-
-// Tool: Update Ticket Log
 const updateTicketLogTool: FunctionDeclaration = {
   name: "updateTicketLog",
-  description: "Appends text to the troubleshooting log of an EXISTING ticket. Call this when the user performs a suggested action (success or fail).",
+  description: "Appends text to the troubleshooting log of an EXISTING ticket.",
   parameters: {
     type: Type.OBJECT,
     properties: {
-      ticketId: { type: Type.STRING, description: "The Ticket ID to update." },
-      textToAppend: { type: Type.STRING, description: "The text description of the action taken and its result (e.g., 'User reseated RAM: No display')." }
+      ticketId: { type: Type.STRING, description: "The Ticket ID." },
+      textToAppend: { type: Type.STRING, description: "Action taken and result." }
     },
     required: ["ticketId", "textToAppend"]
   }
 };
-
-// Tool: Create Ticket
 const createTicketTool: FunctionDeclaration = {
   name: "createTicket",
   description: "Creates a new technical support ticket.",
@@ -59,38 +53,42 @@ const createTicketTool: FunctionDeclaration = {
       contactNumber: { type: Type.STRING, description: "Mobile number." },
       immediateSuperior: { type: Type.STRING, description: "Superior Name (Optional)." },
       superiorContact: { type: Type.STRING, description: "Superior Email (Required)." },
-      troubleshootingLog: { type: Type.STRING, description: "Summary of steps taken BEFORE ticket creation." }
+      troubleshootingLog: { type: Type.STRING, description: "Summary of steps taken." }
     },
-    // Removed immediateSuperior from required list
     required: ["requester", "pid", "subject", "category", "description", "location", "severity", "contactNumber", "superiorContact"]
   }
 };
 
 const tools: Tool[] = [
-  {
-    functionDeclarations: [getTicketDetailsTool, searchTicketsTool, createTicketTool, updateTicketLogTool]
-  }
+  { functionDeclarations: [getTicketDetailsTool, searchTicketsTool, createTicketTool, updateTicketLogTool] }
 ];
 
+// UPDATED SYSTEM INSTRUCTION
 const SYSTEM_INSTRUCTION = `
 You are the "UBI IT Support Assistant".
 
-**CORE BEHAVIOR**
-1.  **Context Holding**: If you create a ticket, **HOLD that Ticket ID** in your immediate context. You are responsible for tracking it during the conversation.
-2.  **Lookup**: If the user asks about a ticket status but doesn't have the ID, ask for their **Property ID (PID)** or **Employee PIN** and use \`searchTickets\`.
-3.  **Smart Classification**: Deduce Category/Severity from context.
-4.  **Mandatory Fields**: Require PID, PIN/Email, Location, Mobile Number.
-5.  **Superior Info**: You **MUST** ask for the **Immediate Superior's Email**. The Superior's Name is optional.
+**GREETING PROTOCOL**
+- **Start** by asking for the user's name and preferred title (e.g., "Mr.", "Ms.", "Engr.").
+- Address the user by this name/title throughout the conversation.
 
-**TROUBLESHOOTING LOGIC FLOW**
-1.  **Phase 1 (Pre-Ticket)**: Gather details. If user tries basic steps (reboot, check cables), log them in \`troubleshootingLog\` during creation.
-2.  **Phase 2 (Post-Ticket - CRITICAL)**: 
-    *   After creating a ticket, suggest **safe workarounds** (e.g., "Try restarting the print spooler").
-    *   **IF THE USER REPLIES** (e.g., "I tried that, it didn't work" or "That fixed it"):
-        *   You **MUST** immediately call the tool \`updateTicketLog\`.
-        *   Use the **Ticket ID** you just created (or the one the user provided).
-        *   Log the specific action and result in \`textToAppend\`.
-    *   This ensures the technician sees the "Live" troubleshooting attempts in the Google Sheet.
+**SCOPE & BOUNDARIES (STRICT)**
+- **ALLOWED**: 
+  - IT Assets: Laptops, Desktops, Printers, Servers, CCTV.
+  - Services: Acumatica ERP, UBIAS (UBI Automated Systems), Workspace/Corporate Email, Drone shots, Office Support (Conference setup).
+- **PROHIBITED**: 
+  - Appliances: **Rice Cookers, Ovens, Microwaves**, Refrigerators.
+  - Personal devices not issued by the company.
+  - **Action**: If a user reports a prohibited item (e.g., Rice Cooker), politely decline and explain you only support IT assets. **DO NOT** create a ticket.
+
+**TROUBLESHOOTING KNOWLEDGE**
+1.  **Slow Excel**: If Excel is slow after downloading from Acumatica, suggest removing white spaces and clearing formatting.
+2.  **IP Phones**: If delayed or laggy, suggest a restart.
+3.  **Printers**: If print quality is poor, suggest cleaning. Check active printer selection.
+
+**CORE BEHAVIOR**
+1.  **Context Holding**: If you create a ticket, **HOLD that Ticket ID**.
+2.  **Mandatory Fields**: Require PID, PIN/Email, Location, Mobile Number, Superior Email.
+3.  **Post-Ticket**: After creation, suggest workarounds. If user replies, call \`updateTicketLog\`.
 
 **SAFETY**: No hardware opening. No dangerous tools.
 `;
@@ -101,47 +99,33 @@ export class GeminiService {
   private apiKey: string;
 
   constructor() {
-    // In Vite, env vars are exposed via import.meta.env, but we will handle process.env for compatibility
-    // with the build step we are about to create.
     this.apiKey = process.env.API_KEY || ''; 
     this.client = new GoogleGenAI({ apiKey: this.apiKey });
   }
 
   async sendMessage(history: { role: string; parts: { text: string }[] }[], newMessage: string) {
-    // Check key availability
-    if (!this.apiKey) {
-        return { text: "Error: API Key is missing. Please ensure the app is built with the API_KEY environment variable.", isToolResponse: false }
-    }
+    if (!this.apiKey) return { text: "Error: API Key is missing.", isToolResponse: false };
 
     try {
-      const formattedHistory = history.map(h => ({
-        role: h.role,
-        parts: h.parts
-      }));
-
+      const formattedHistory = history.map(h => ({ role: h.role, parts: h.parts }));
       const chat = this.client.chats.create({
         model: this.modelName,
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-          tools: tools,
-          temperature: 0.2, 
-        },
+        config: { systemInstruction: SYSTEM_INSTRUCTION, tools: tools, temperature: 0.2 },
         history: formattedHistory
       });
 
       const result = await chat.sendMessage({ message: newMessage });
-
       const toolCalls = result.candidates?.[0]?.content?.parts?.filter(p => p.functionCall);
       
       if (toolCalls && toolCalls.length > 0) {
         const functionResponses = [];
-        
         for (const call of toolCalls) {
           const fc = call.functionCall;
           if (fc) {
             console.log(`Tool executing: ${fc.name}`);
             let responseContent = "";
-
+            
+            // ... (Tool implementation logic same as previous) ...
             if (fc.name === 'getTicketDetails') {
                 const args = fc.args as any;
                 const ticket = ticketStore.getTicketById(args.ticketId);
@@ -164,12 +148,11 @@ export class GeminiService {
                         location: args.location,
                         severity: (args.severity as TicketSeverity) || TicketSeverity.MINOR,
                         contactNumber: args.contactNumber,
-                        immediateSuperior: args.immediateSuperior || "", // Optional
-                        superiorContact: args.superiorContact, // Required
+                        immediateSuperior: args.immediateSuperior || "",
+                        superiorContact: args.superiorContact,
                         troubleshootingLog: args.troubleshootingLog || "No steps recorded."
                     });
-                    // IMPORTANT: Return the ID so the model memorizes it for Phase 2
-                    responseContent = JSON.stringify({ success: true, ticketId: newTicket.id, message: "Ticket created. ID held in context for updates." });
+                    responseContent = JSON.stringify({ success: true, ticketId: newTicket.id, message: "Ticket created. ID held in context." });
                 } catch (e) {
                     responseContent = JSON.stringify({ error: "Failed to create ticket." });
                 }
@@ -177,26 +160,16 @@ export class GeminiService {
             else if (fc.name === 'updateTicketLog') {
                 const args = fc.args as any;
                 await ticketStore.updateTicketLog(args.ticketId, args.textToAppend);
-                responseContent = JSON.stringify({ success: true, message: `Log appended to Ticket ${args.ticketId}.` });
+                responseContent = JSON.stringify({ success: true, message: "Log updated." });
             }
 
-            functionResponses.push({
-              name: fc.name,
-              response: { result: responseContent },
-              id: fc.id
-            });
+            functionResponses.push({ name: fc.name, response: { result: responseContent }, id: fc.id });
           }
         }
-
-        const finalResponse = await chat.sendMessage({
-             message: functionResponses.map(fr => ({ functionResponse: fr }))
-        });
-
+        const finalResponse = await chat.sendMessage({ message: functionResponses.map(fr => ({ functionResponse: fr })) });
         return { text: finalResponse.text, isToolResponse: true };
       }
-
       return { text: result.text, isToolResponse: false };
-
     } catch (error) {
       console.error("Gemini API Error:", error);
       return { text: "System error. Please try again." };

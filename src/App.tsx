@@ -1,30 +1,18 @@
-import React, { useState } from 'react';
-import Sidebar from './components/Sidebar';
-import Dashboard from './components/Dashboard';
+import React from 'react';
 import TicketManager from './components/TicketManager';
 import AIChat from './components/AIChat';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard />;
-      case 'tickets':
-        return <TicketManager />;
-      case 'chat':
-        return <AIChat />;
-      default:
-        return <Dashboard />;
-    }
-  };
-
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-      <div className="flex-1 ml-64 overflow-y-auto">
-         {renderContent()}
+    <div className="flex h-screen bg-gray-50 overflow-hidden font-sans text-gray-900">
+      {/* Left Panel: Ticket Management (Minimalist List) */}
+      <div className="w-1/2 h-full border-r border-gray-200 bg-white flex flex-col">
+        <TicketManager />
+      </div>
+
+      {/* Right Panel: AI Support (Chat) */}
+      <div className="w-1/2 h-full bg-gray-50 flex flex-col">
+        <AIChat />
       </div>
     </div>
   );

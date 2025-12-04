@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, Database } from 'lucide-react';
+import { Send, Bot, User, Loader2, Sparkles } from 'lucide-react';
 import { geminiService } from '../services/geminiService';
 import { ChatMessage } from '../types';
 
@@ -8,13 +8,15 @@ const AIChat: React.FC = () => {
     {
       id: '1',
       role: 'model',
-      content: 'Hello! I am the UBI Tech Support Assistant. To assist you better, could you please tell me your name and how you would like to be addressed (e.g., Mr., Ms., Engr.)?',
+      content: 'Good day. I am the UBI IT Support Assistant.\n\nTo begin, please state your name and how you would like to be addressed (e.g., Mr., Ms., Engr.).',
       timestamp: new Date()
     }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null); // Ref for the input box
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -22,7 +24,11 @@ const AIChat: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+    // Auto-focus input whenever messages change (e.g. after bot replies)
+    if (!isLoading) {
+        setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [messages, isLoading]);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -39,7 +45,6 @@ const AIChat: React.FC = () => {
     setIsLoading(true);
 
     try {
-        // Prepare history for Gemini
         const history = messages.map(m => ({
             role: m.role,
             parts: [{ text: m.content }]
@@ -58,11 +63,10 @@ const AIChat: React.FC = () => {
         setMessages(prev => [...prev, botMessage]);
 
     } catch (error) {
-        console.error("Chat Error:", error);
         setMessages(prev => [...prev, {
             id: Date.now().toString(),
             role: 'model',
-            content: 'I encountered an error connecting to the server. Please try again.',
+            content: 'Connection error. Please try again.',
             timestamp: new Date()
         }]);
     } finally {
@@ -78,100 +82,85 @@ const AIChat: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mx-8 my-8 max-w-5xl lg:mx-auto">
+    <div className="flex flex-col h-full bg-white relative">
       {/* Header */}
-      <div className="bg-blue-600 p-4 flex items-center justify-between shadow-sm shrink-0">
+      <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-white z-10">
          <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-2 rounded-lg">
-                <Bot className="text-white" size={24} />
+            <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center text-white">
+                <Bot size={18} />
             </div>
             <div>
-                <h2 className="text-white font-bold">IT Support Assistant</h2>
-                <p className="text-blue-100 text-xs">Powered by Gemini &bull; Procedure Aware (PM-IT-04)</p>
+                <h2 className="text-sm font-semibold text-gray-900">Support Assistant</h2>
+                <p className="text-xs text-gray-400">Procedure Aware (PM-IT-04)</p>
             </div>
-         </div>
-         <div className="bg-green-500/20 px-3 py-1 rounded border border-green-300/30 text-white text-xs flex items-center gap-1">
-            <Database size={12} />
-            <span>Live Database</span>
          </div>
       </div>
 
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50 scrollbar-hide">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-white">
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div className={`flex max-w-[80%] gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+          <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`flex max-w-[85%] gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                
                 {/* Avatar */}
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 shadow-sm ${
-                    msg.role === 'user' ? 'bg-gray-800 text-white' : 'bg-blue-600 text-white'
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 border ${
+                    msg.role === 'user' ? 'bg-gray-100 border-gray-200 text-gray-600' : 'bg-white border-gray-200 text-blue-600'
                 }`}>
-                    {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+                    {msg.role === 'user' ? <User size={14} /> : <Sparkles size={14} />}
                 </div>
 
-                {/* Bubble */}
-                <div className={`p-4 rounded-2xl shadow-sm text-sm leading-relaxed ${
-                    msg.role === 'user' 
-                        ? 'bg-gray-800 text-white rounded-tr-none' 
-                        : 'bg-white text-gray-700 border border-gray-100 rounded-tl-none'
-                }`}>
-                    {msg.role === 'model' && msg.isToolCall && (
-                        <div className="mb-2 text-xs text-blue-600 font-semibold flex items-center gap-1">
-                           <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                           Accessed Google Sheets Database
+                {/* Content */}
+                <div className="space-y-1">
+                    <div className={`text-sm leading-relaxed whitespace-pre-wrap ${
+                        msg.role === 'user' ? 'text-gray-800 bg-gray-50 p-3 rounded-xl rounded-tr-none' : 'text-gray-600'
+                    }`}>
+                        {msg.content}
+                    </div>
+                    {msg.isToolCall && (
+                        <div className="text-[10px] text-blue-500 font-medium flex items-center gap-1 opacity-70">
+                            Database Accessed
                         </div>
                     )}
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
-                    <div className={`text-[10px] mt-2 opacity-60 text-right`}>
-                        {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </div>
                 </div>
             </div>
           </div>
         ))}
+        
         {isLoading && (
             <div className="flex justify-start">
-                 <div className="flex max-w-[80%] gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 mt-1">
-                        <Bot size={16} />
+                 <div className="flex max-w-[85%] gap-4">
+                    <div className="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center shrink-0 mt-1 text-blue-600">
+                        <Loader2 size={14} className="animate-spin" />
                     </div>
-                    <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm">
-                        <div className="flex items-center gap-2 text-gray-500 text-sm">
-                            <Loader2 size={16} className="animate-spin" />
-                            <span>Thinking...</span>
-                        </div>
-                    </div>
+                    <div className="text-sm text-gray-400 mt-2">Thinking...</div>
                  </div>
             </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="p-4 bg-white border-t border-gray-200 shrink-0">
-        <div className="relative flex items-center gap-2">
+      {/* Input */}
+      <div className="p-6 bg-white border-t border-gray-100">
+        <div className="relative max-w-3xl mx-auto">
             <input
+                ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask about procedures, ticket #83118, PID, or report an issue..."
-                className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-3 pr-12 shadow-sm"
+                placeholder="Type your message..."
+                className="w-full bg-gray-50 border-0 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-gray-100 focus:bg-white block p-4 pr-12 transition-all placeholder:text-gray-400"
                 disabled={isLoading}
+                autoFocus
             />
             <button 
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
-                className="absolute right-2 p-2 text-blue-600 hover:bg-blue-50 rounded-lg disabled:opacity-50 transition-colors"
+                className="absolute right-2 top-2 p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-200 rounded-lg disabled:opacity-30 transition-colors"
             >
-                <Send size={20} />
+                <Send size={18} />
             </button>
         </div>
-        <p className="text-center text-xs text-gray-400 mt-2">
-            AI can make mistakes. Always verify critical safety information with your supervisor.
-        </p>
       </div>
     </div>
   );
