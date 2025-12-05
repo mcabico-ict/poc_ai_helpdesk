@@ -22,37 +22,28 @@ const SHEET_NAME = "Tickets";
 const FOLDER_ID = "1LzRc9AXeWAwu4rONAO67bVe7mPxmrbnO"; 
 
 function setup() {
-  Logger.log("--- STARTING DIAGNOSTIC SETUP ---");
+  Logger.log("--- STARTING SETUP ---");
   
-  // CHECK 1: GENERAL DRIVE ACCESS (TESTS SCOPE)
-  try {
-    const root = DriveApp.getRootFolder();
-    Logger.log("   ✅ STEP 1 SUCCESS: Drive Scope is Active (Accessed Root Folder).");
-  } catch (e) {
-    Logger.log("   ❌ STEP 1 FAILED: Script does not have Drive Scope.");
-    Logger.log("      FIX: Ensure 'appsscript.json' is updated AND SAVED with the 'https://www.googleapis.com/auth/drive' scope.");
-    return; // Exit if basic access fails
-  }
-
-  // CHECK 2: SPECIFIC FOLDER ACCESS (TESTS PERMISSIONS/ID)
+  // DIRECT CHECK: We skip getRootFolder() as it causes V8 Runtime crashes often.
+  // We go straight to the specific folder.
   try {
     const folder = DriveApp.getFolderById(FOLDER_ID);
-    Logger.log("   ✅ STEP 2 SUCCESS: Connected to Target Folder '" + folder.getName() + "'");
+    Logger.log("✅ SUCCESS: Connected to Drive Folder '" + folder.getName() + "'");
   } catch (e) {
-    Logger.log("   ❌ STEP 2 FAILED: Could not access the specific folder ID: " + FOLDER_ID);
-    Logger.log("      FIX: Ensure your Google Account has 'Editor' access to this folder link: https://drive.google.com/drive/folders/" + FOLDER_ID);
-    Logger.log("      Error Details: " + e.toString());
+    Logger.log("❌ FAILED: Could not access Folder ID: " + FOLDER_ID);
+    Logger.log("   Fix: Check the ID and ensure your account has EDIT permissions to it.");
+    Logger.log("   Error: " + e.toString());
   }
 
-  // CHECK 3: SPREADSHEET ACCESS
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    Logger.log("   ✅ STEP 3 SUCCESS: Connected to Spreadsheet '" + ss.getName() + "'");
+    Logger.log("✅ SUCCESS: Connected to Spreadsheet '" + ss.getName() + "'");
   } catch (e) {
-    Logger.log("   ❌ STEP 3 FAILED: Could not access Spreadsheet ID: " + SPREADSHEET_ID);
+    Logger.log("❌ FAILED: Could not access Spreadsheet ID: " + SPREADSHEET_ID);
   }
   
-  Logger.log("--- DIAGNOSTIC COMPLETE ---");
+  Logger.log("--- SETUP COMPLETE ---");
+  Logger.log("If you see SUCCESS above, you are ready to Deploy > New Deployment.");
 }
 
 function doPost(e) {
@@ -72,7 +63,7 @@ function doPost(e) {
       const blob = Utilities.newBlob(Utilities.base64Decode(data.fileData), contentType, data.fileName);
       const file = folder.createFile(blob);
       
-      // Ensure file is publicly viewable by anyone with the link (so AI/Users can see it)
+      // Ensure public visibility for the AI/User to view it
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       
       return ContentService.createTextOutput(JSON.stringify({ 
@@ -88,45 +79,29 @@ function doPost(e) {
     // ACTION: CREATE TICKET
     // ---------------------------------------------------------
     if (action === "create") {
-      // COLUMN MAPPING (0-indexed in array, 1-indexed in sheet)
-      // A=0: id
-      // B=1: dateCreated
-      // C=2: pid
-      // D=3: requesterEmail
-      // E=4: employeePin
-      // F=5: immediateSuperior
-      // G=6: superiorContact
-      // H=7: subject
-      // I=8: category
-      // J=9: description
-      // K=10: technician
-      // L=11: location
-      // M=12: status
-      // N=13: severity
-      // O=14: contactNumber
-      // P=15: techNotes
-      // Q=16: troubleshootingLog
-      // R=17: attachments
-
+      // STRICT COLUMN ALIGNMENT (18 Columns)
+      // Index: 0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15  16  17
+      // Col:   A   B   C   D   E   F   G   H   I   J   K   L   M   N   O   P   Q   R
+      
       sheet.appendRow([
-        data.id,                // A
-        data.dateCreated,       // B
-        data.pid,               // C
-        data.requesterEmail,    // D
-        data.employeePin,       // E
-        data.immediateSuperior, // F
-        data.superiorContact,   // G
-        data.subject,           // H
-        data.category,          // I
-        data.description,       // J
-        data.technician,        // K
-        data.location,          // L
-        data.status,            // M
-        data.severity,          // N
-        data.contactNumber,     // O
-        data.techNotes,         // P
-        data.troubleshootingLog,// Q
-        data.attachmentUrl || "" // R
+        data.id,                 // A: Ticket ID
+        data.dateCreated,        // B: Date Created
+        data.pid,                // C: Property ID
+        data.requesterEmail,     // D: Requester Email
+        data.employeePin,        // E: Employee PIN
+        data.immediateSuperior,  // F: Immediate Superior
+        data.superiorContact,    // G: Superior Contact
+        data.subject,            // H: Subject
+        data.category,           // I: Category
+        data.description,        // J: Description
+        data.technician,         // K: Technician
+        data.location,           // L: Location
+        data.status,             // M: Status
+        data.severity,           // N: Severity
+        data.contactNumber,      // O: Contact Number
+        data.techNotes,          // P: Tech Notes
+        data.troubleshootingLog, // Q: Troubleshooting Log
+        data.attachmentUrl || "" // R: Attachments (Links)
       ]);
 
       return ContentService.createTextOutput(JSON.stringify({ success: true, id: data.id }))
@@ -141,12 +116,12 @@ function doPost(e) {
       const dataRange = sheet.getDataRange();
       const values = dataRange.getValues();
       
-      // Target: Column Q (Troubleshooting Log) -> Index 17 (1-based)
+      // Target: Column Q (Log) -> Index 17 (1-based in getRange, 16 in array)
       const LOG_COL_INDEX = 17; 
 
       for (let i = 1; i < values.length; i++) {
         if (String(values[i][0]) === ticketId) { 
-           const currentLog = values[i][16]; // Array Index 16 is Col Q
+           const currentLog = values[i][16]; // Col Q is index 16
            const newLog = currentLog ? currentLog + "\n" + data.textToAppend : data.textToAppend;
            sheet.getRange(i + 1, LOG_COL_INDEX).setValue(newLog);
            return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
@@ -163,8 +138,8 @@ function doPost(e) {
       const dataRange = sheet.getDataRange();
       const values = dataRange.getValues();
       
-      // Target: Column M (Status) -> Index 13
-      // Target: Column Q (Log) -> Index 17
+      // Target: Column M (Status) -> Index 13 (1-based)
+      // Target: Column Q (Log) -> Index 17 (1-based)
       const STATUS_COL_INDEX = 13;
       const LOG_COL_INDEX = 17;
 
