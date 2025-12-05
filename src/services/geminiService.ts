@@ -75,7 +75,7 @@ const createTicketTool: FunctionDeclaration = {
       immediateSuperior: { type: Type.STRING, description: "Superior Name (Optional)." },
       superiorContact: { type: Type.STRING, description: "Superior Email (Required)." },
       troubleshootingLog: { type: Type.STRING, description: "Summary of steps taken BEFORE ticket creation." },
-      attachmentUrl: { type: Type.STRING, description: "URL(s) of uploaded files. IMPORTANT: You must provide the URL here if the user uploaded a file earlier." },
+      attachmentUrl: { type: Type.STRING, description: "URL(s) of uploaded files. IMPORTANT: You must provide the URL here if the user uploaded a file earlier in the conversation." },
       // New fields for Account Support
       requesterName: { type: Type.STRING, description: "Full Name of the user." },
       position: { type: Type.STRING, description: "Job Position." },
@@ -108,11 +108,10 @@ You are the "UBI IT Support Assistant".
   - Personal devices.
 
 **MEMORY & ATTACHMENTS (STRICT RULE)**
-- Users may upload files *before* they describe the issue.
-- **ACTION**: Scan the entire conversation history. Look for messages containing "URL:" or "I have uploaded a file".
-- **HOLD** these URLs in your memory.
-- When calling the \`createTicket\` tool, you **MUST** populate the \`attachmentUrl\` field with these URLs.
-- If there are multiple files, join the URLs with a comma.
+- **Scanning Context**: Before answering or creating a ticket, you MUST scan the entire conversation history.
+- **Identify URLs**: Look for any user messages containing "URL:" or system messages saying "I have uploaded a file".
+- **Action**: When calling \`createTicket\`, you **MUST** include these URLs in the \`attachmentUrl\` parameter.
+- **Verification**: Do not ask the user for the file again if they have already uploaded it.
 
 **DATA REQUIREMENTS**
 1.  **General Hardware**: PID, PIN/Email, Location, Mobile Number, Superior Email.
@@ -130,7 +129,7 @@ You are the "UBI IT Support Assistant".
 
 **CORE BEHAVIOR**
 1.  **Context Holding**: If you create a ticket, **HOLD that Ticket ID**.
-2.  **Attachments**: Always check history for "URL:" before asking for files.
+2.  **Troubleshooting**: Ask diagnostic questions before creating a ticket unless the user just wants to upload requirements (like for IDs).
 
 **SAFETY**: No hardware opening. No dangerous tools.
 `;

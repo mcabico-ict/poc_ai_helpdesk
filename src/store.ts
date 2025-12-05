@@ -3,12 +3,8 @@
 import { Ticket, TicketSeverity, TicketStatus } from "./types";
 
 // The Google Apps Script Web App URL
+// IMPORTANT: UPDATE THIS URL AFTER RE-DEPLOYING THE SCRIPT
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyK33hOecOAcnljL0XCvyELQPzZC7MRwltKjO_k0f93iVaUGNIdSOrmIP_BhiGj84a3gQ/exec";
-
-/* 
-   IMPORTANT: UPDATE YOUR GOOGLE APPS SCRIPT WITH THE CODE IN google_apps_script.js 
-   AND DEPLOY AS A NEW VERSION.
-*/
 
 type Listener = () => void;
 

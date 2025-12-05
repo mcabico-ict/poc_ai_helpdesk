@@ -14,7 +14,7 @@
 // 3. RUN THE "setup" FUNCTION manually in the editor to authorize the Drive permissions.
 //    (Select "setup" from dropdown -> Click "Run" -> Review Permissions).
 // 4. Deploy -> New Deployment -> Select "Web app".
-//    - Description: "v4 - Column Alignment"
+//    - Description: "v5 - Aligned Columns"
 //    - Execute as: **Me** (your email)  <-- CRITICAL for file creation
 //    - Who has access: **Anyone**       <-- CRITICAL for public access
 // -----------------------------------------------------------------------------
@@ -25,16 +25,31 @@ const FOLDER_ID = "1LzRc9AXeWAwu4rONAO67bVe7mPxmrbnO";
 
 // RUN THIS ONCE TO AUTHORIZE PERMISSIONS
 function setup() {
+  Logger.log("--- STARTING SETUP DIAGNOSTIC ---");
+  
+  // CHECK 1: DRIVE
   try {
+    Logger.log("1. Attempting to access Drive Folder: " + FOLDER_ID);
     const folder = DriveApp.getFolderById(FOLDER_ID);
-    Logger.log("Access to folder confirmed: " + folder.getName());
-    SpreadsheetApp.openById(SPREADSHEET_ID);
-    Logger.log("Access to sheet confirmed.");
-    Logger.log("Permissions authorized! You can now Deploy.");
+    Logger.log("   ✅ SUCCESS: Connected to Folder '" + folder.getName() + "'");
   } catch (e) {
-    Logger.log("Error during setup: " + e.toString());
-    Logger.log("Please ensure appsscript.json has the correct oauthScopes and you have Edit access to the Drive Folder/Sheet.");
+    Logger.log("   ❌ FAILED: Could not access Drive Folder.");
+    Logger.log("      Error: " + e.toString());
+    Logger.log("      Fix: Check Folder ID, Check Permissions, Ensure 'appsscript.json' includes drive scope.");
   }
+
+  // CHECK 2: SPREADSHEET
+  try {
+    Logger.log("2. Attempting to access Spreadsheet: " + SPREADSHEET_ID);
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    Logger.log("   ✅ SUCCESS: Connected to Spreadsheet '" + ss.getName() + "'");
+  } catch (e) {
+    Logger.log("   ❌ FAILED: Could not access Spreadsheet.");
+    Logger.log("      Error: " + e.toString());
+  }
+  
+  Logger.log("--- SETUP COMPLETE ---");
+  Logger.log("If both succeeded, you are ready to Deploy.");
 }
 
 function doPost(e) {
@@ -69,45 +84,45 @@ function doPost(e) {
     // ACTION: CREATE TICKET
     // ---------------------------------------------------------
     if (action === "create") {
-      // NEW COLUMN ORDER (18 Columns):
-      // A: id
-      // B: dateCreated
-      // C: pid
-      // D: requesterEmail
-      // E: employeePin
-      // F: immediateSuperior
-      // G: superiorContact
-      // H: subject
-      // I: category
-      // J: description
-      // K: technician
-      // L: location
-      // M: status
-      // N: severity
-      // O: contactNumber
-      // P: techNotes
-      // Q: troubleshootingLog
-      // R: attachments
+      // EXACT COLUMN ORDER REQUESTED:
+      // 1. id
+      // 2. dateCreated
+      // 3. pid
+      // 4. requesterEmail
+      // 5. employeePin
+      // 6. immediateSuperior
+      // 7. superiorContact
+      // 8. subject
+      // 9. category
+      // 10. description
+      // 11. technician
+      // 12. location
+      // 13. status
+      // 14. severity
+      // 15. contactNumber
+      // 16. techNotes
+      // 17. troubleshootingLog
+      // 18. attachments
 
       sheet.appendRow([
-        data.id,               // A
-        data.dateCreated,      // B
-        data.pid,              // C
-        data.requesterEmail,   // D
-        data.employeePin,      // E
-        data.immediateSuperior,// F
-        data.superiorContact,  // G
-        data.subject,          // H
-        data.category,         // I
-        data.description,      // J
-        data.technician,       // K
-        data.location,         // L
-        data.status,           // M
-        data.severity,         // N
-        data.contactNumber,    // O
-        data.techNotes,        // P
-        data.troubleshootingLog,// Q
-        data.attachmentUrl || "" // R
+        data.id,                // 1. id
+        data.dateCreated,       // 2. dateCreated
+        data.pid,               // 3. pid
+        data.requesterEmail,    // 4. requesterEmail
+        data.employeePin,       // 5. employeePin
+        data.immediateSuperior, // 6. immediateSuperior
+        data.superiorContact,   // 7. superiorContact
+        data.subject,           // 8. subject
+        data.category,          // 9. category
+        data.description,       // 10. description
+        data.technician,        // 11. technician
+        data.location,          // 12. location
+        data.status,            // 13. status
+        data.severity,          // 14. severity
+        data.contactNumber,     // 15. contactNumber
+        data.techNotes,         // 16. techNotes
+        data.troubleshootingLog,// 17. troubleshootingLog
+        data.attachmentUrl || "" // 18. attachments
       ]);
 
       return ContentService.createTextOutput(JSON.stringify({ success: true, id: data.id }))
@@ -122,8 +137,8 @@ function doPost(e) {
       const dataRange = sheet.getDataRange();
       const values = dataRange.getValues();
       
-      // Troubleshooting Log is now Column Q (17th column)
-      // Array index is 16. Sheet column index is 17.
+      // Troubleshooting Log is Column 17 (Q)
+      // Array index is 16.
       const LOG_COL_INDEX = 17; 
 
       for (let i = 1; i < values.length; i++) {
@@ -145,8 +160,8 @@ function doPost(e) {
       const dataRange = sheet.getDataRange();
       const values = dataRange.getValues();
       
-      // Status is Column M (13th column) -> Index 12 -> Sheet Col 13
-      // Log is Column Q (17th column) -> Index 16 -> Sheet Col 17
+      // Status is Column 13 (M)
+      // Log is Column 17 (Q)
       const STATUS_COL_INDEX = 13;
       const LOG_COL_INDEX = 17;
 
@@ -178,27 +193,26 @@ function doGet(e) {
   const data = sheet.getDataRange().getValues();
   const rows = data.slice(1);
 
-  // Map columns to JSON object based on NEW structure
   const tickets = rows.map(row => {
     return {
-      id: row[0],               // A
-      dateCreated: row[1],      // B
-      pid: row[2],              // C
-      requesterEmail: row[3],   // D
-      employeePin: row[4],      // E
-      immediateSuperior: row[5],// F
-      superiorContact: row[6],  // G
-      subject: row[7],          // H
-      category: row[8],         // I
-      description: row[9],      // J
-      technician: row[10],      // K
-      location: row[11],        // L
-      status: row[12],          // M
-      severity: row[13],        // N
-      contactNumber: row[14],   // O
-      techNotes: row[15],       // P
-      troubleshootingLog: row[16], // Q
-      attachmentUrl: row[17]    // R (New)
+      id: row[0],               // 1
+      dateCreated: row[1],      // 2
+      pid: row[2],              // 3
+      requesterEmail: row[3],   // 4
+      employeePin: row[4],      // 5
+      immediateSuperior: row[5],// 6
+      superiorContact: row[6],  // 7
+      subject: row[7],          // 8
+      category: row[8],         // 9
+      description: row[9],      // 10
+      technician: row[10],      // 11
+      location: row[11],        // 12
+      status: row[12],          // 13
+      severity: row[13],        // 14
+      contactNumber: row[14],   // 15
+      techNotes: row[15],       // 16
+      troubleshootingLog: row[16], // 17
+      attachmentUrl: row[17]    // 18
     };
   });
 
