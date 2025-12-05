@@ -1,5 +1,4 @@
 
-
 import { Ticket, TicketSeverity, TicketStatus } from "./types";
 
 // The Google Apps Script Web App URL

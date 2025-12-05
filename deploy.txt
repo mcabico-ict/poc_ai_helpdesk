@@ -10,9 +10,12 @@ set -e
 
 echo "🚀 Starting Deployment..."
 
-# 1. Pull latest code
-echo "📥 Pulling from GitHub..."
-git pull
+# 1. Pull latest code (Force sync with remote)
+echo "📥 Fetching latest changes..."
+# Fetch all branches
+git fetch --all
+# Force reset to match origin/main exactly (Fixes 'You are not currently on a branch' error)
+git reset --hard origin/main
 
 # 2. CLEANUP: Remove duplicate root files that conflict with src/
 echo "🧹 Cleaning up old root files..."
