@@ -1,7 +1,8 @@
 
+
 // -----------------------------------------------------------------------------
 // UBI TECH SUPPORT AI - BACKEND SCRIPT
-// VERSION: 2.1 (Soft Setup & Strict Columns)
+// VERSION: 2.1 (Strict Columns & Soft Setup)
 // -----------------------------------------------------------------------------
 //
 // ⚠️ CRITICAL DEPLOYMENT INSTRUCTIONS:
@@ -26,7 +27,6 @@ function setup() {
   Logger.log("--- STARTING SETUP (v2.1) ---");
   
   // SOFT CHECK: We catch errors here to avoid 'Server Error' crashing the setup process.
-  // This allows the permissions dialog to trigger if needed, but proceeds even if Folder check is flaky in Editor.
   
   try {
     const folder = DriveApp.getFolderById(FOLDER_ID);

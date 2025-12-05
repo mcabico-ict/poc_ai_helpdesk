@@ -3,7 +3,7 @@
 import { Ticket, TicketSeverity, TicketStatus } from "./types";
 
 // The Google Apps Script Web App URL
-// Updated with user provided ID
+// Updated with user provided ID: AKfycbxx6jNAsLDBCucxp6p_KFv0MOb0-iS3x9i_LoPlbbJISq4kgjrkMFSNrjLFfRyzOC1Ghw
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxx6jNAsLDBCucxp6p_KFv0MOb0-iS3x9i_LoPlbbJISq4kgjrkMFSNrjLFfRyzOC1Ghw/exec";
 
 type Listener = () => void;

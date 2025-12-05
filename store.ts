@@ -2,7 +2,7 @@
 import { Ticket, TicketSeverity, TicketStatus } from "./types";
 
 // The Google Apps Script Web App URL provided by the user (New Deployment)
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw1owYiLKokfMrqpYkNNZpAw42Cs7oF03oxD6ZSLgGi6za3aeDeD4YpY5mX1ngv4-4Oog/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxx6jNAsLDBCucxp6p_KFv0MOb0-iS3x9i_LoPlbbJISq4kgjrkMFSNrjLFfRyzOC1Ghw/exec";
 
 /* 
    IMPORTANT: YOU MUST UPDATE YOUR GOOGLE APPS SCRIPT DEPLOYMENT!
