@@ -3,9 +3,10 @@
 // -----------------------------------------------------------------------------
 // INSTRUCTIONS:
 // 1. Paste this code into your Google Apps Script editor (code.gs).
-// 2. Ensure "appsscript.json" (manifest) has the "drive" and "spreadsheets" scopes if needed.
-// 3. Deploy -> New Deployment -> Web App -> Execute as: Me -> Who has access: Anyone.
-// 4. Copy the URL and update src/store.ts.
+// 2. Click "Save".
+// 3. SELECT "checkPermissions" from the function dropdown menu.
+// 4. Click "Run" and Authorize the permissions.
+// 5. Deploy -> New Deployment.
 // -----------------------------------------------------------------------------
 
 const SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"; // <--- REPLACE THIS WITH YOUR SHEET ID IF NOT LINKED
@@ -160,4 +161,12 @@ function doGet(e) {
   });
 
   return ContentService.createTextOutput(JSON.stringify(tickets)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ------------------------------------------------------------------
+// IMPORTANT: RUN THIS FUNCTION MANUALLY ONCE TO AUTHORIZE PERMISSIONS
+// ------------------------------------------------------------------
+function checkPermissions() {
+  const folder = DriveApp.getFolderById(FOLDER_ID);
+  Logger.log("Success! Script has access to folder: " + folder.getName());
 }
