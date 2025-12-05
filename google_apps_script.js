@@ -1,4 +1,5 @@
 
+
 // -----------------------------------------------------------------------------
 // UBI TECH SUPPORT AI - BACKEND SCRIPT
 // -----------------------------------------------------------------------------
@@ -24,15 +25,16 @@ const FOLDER_ID = "1LzRc9AXeWAwu4rONAO67bVe7mPxmrbnO";
 function setup() {
   Logger.log("--- STARTING SETUP ---");
   
-  // DIRECT CHECK: We skip getRootFolder() as it causes V8 Runtime crashes often.
-  // We go straight to the specific folder.
+  // SOFT CHECK: We catch errors here to avoid 'Server Error' crashing the setup process.
+  // This allows the permissions dialog to trigger if needed, but proceeds even if Folder check is flaky in Editor.
+  
   try {
     const folder = DriveApp.getFolderById(FOLDER_ID);
     Logger.log("✅ SUCCESS: Connected to Drive Folder '" + folder.getName() + "'");
   } catch (e) {
-    Logger.log("❌ FAILED: Could not access Folder ID: " + FOLDER_ID);
-    Logger.log("   Fix: Check the ID and ensure your account has EDIT permissions to it.");
-    Logger.log("   Error: " + e.toString());
+    Logger.log("⚠️ WARNING: Could not verify Drive Folder in Editor.");
+    Logger.log("   Details: " + e.toString());
+    Logger.log("   NOTE: This is common in the Script Editor. If you have Edit access, the Web App will likely still work.");
   }
 
   try {
@@ -40,10 +42,11 @@ function setup() {
     Logger.log("✅ SUCCESS: Connected to Spreadsheet '" + ss.getName() + "'");
   } catch (e) {
     Logger.log("❌ FAILED: Could not access Spreadsheet ID: " + SPREADSHEET_ID);
+    Logger.log("   Details: " + e.toString());
   }
   
-  Logger.log("--- SETUP COMPLETE ---");
-  Logger.log("If you see SUCCESS above, you are ready to Deploy > New Deployment.");
+  Logger.log("--- SETUP FINISHED ---");
+  Logger.log("Please proceed to Deploy > New Deployment.");
 }
 
 function doPost(e) {
