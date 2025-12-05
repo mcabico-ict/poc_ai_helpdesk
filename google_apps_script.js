@@ -14,20 +14,27 @@
 // 3. RUN THE "setup" FUNCTION manually in the editor to authorize the Drive permissions.
 //    (Select "setup" from dropdown -> Click "Run" -> Review Permissions).
 // 4. Deploy -> New Deployment -> Select "Web app".
-//    - Description: "v3 - Column Alignment"
+//    - Description: "v4 - Column Alignment"
 //    - Execute as: **Me** (your email)  <-- CRITICAL for file creation
 //    - Who has access: **Anyone**       <-- CRITICAL for public access
 // -----------------------------------------------------------------------------
 
 const SPREADSHEET_ID = "1F41Jf4o8fJNWA2Laon1FFLe3lWvnqiUOVumUJKG6VMk"; 
 const SHEET_NAME = "Tickets";
-const FOLDER_ID = "1LzRc9AXeWAwu4rONAO67bVe7mPxmrbnO"; // The specific Drive Folder ID
+const FOLDER_ID = "1LzRc9AXeWAwu4rONAO67bVe7mPxmrbnO"; 
 
 // RUN THIS ONCE TO AUTHORIZE PERMISSIONS
 function setup() {
-  DriveApp.getRootFolder();
-  SpreadsheetApp.getActiveSpreadsheet();
-  Logger.log("Permissions authorized! You can now Deploy.");
+  try {
+    const folder = DriveApp.getFolderById(FOLDER_ID);
+    Logger.log("Access to folder confirmed: " + folder.getName());
+    SpreadsheetApp.openById(SPREADSHEET_ID);
+    Logger.log("Access to sheet confirmed.");
+    Logger.log("Permissions authorized! You can now Deploy.");
+  } catch (e) {
+    Logger.log("Error during setup: " + e.toString());
+    Logger.log("Please ensure appsscript.json has the correct oauthScopes and you have Edit access to the Drive Folder/Sheet.");
+  }
 }
 
 function doPost(e) {
@@ -47,7 +54,6 @@ function doPost(e) {
       const blob = Utilities.newBlob(Utilities.base64Decode(data.fileData), contentType, data.fileName);
       const file = folder.createFile(blob);
       
-      // Ensure the file is viewable by anyone with the link
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       
       return ContentService.createTextOutput(JSON.stringify({ 
@@ -63,7 +69,7 @@ function doPost(e) {
     // ACTION: CREATE TICKET
     // ---------------------------------------------------------
     if (action === "create") {
-      // Column Order:
+      // NEW COLUMN ORDER (18 Columns):
       // A: id
       // B: dateCreated
       // C: pid
@@ -116,12 +122,13 @@ function doPost(e) {
       const dataRange = sheet.getDataRange();
       const values = dataRange.getValues();
       
-      // Troubleshooting Log is Column Q (Index 16 in 0-based array, Column 17 in Sheet)
+      // Troubleshooting Log is now Column Q (17th column)
+      // Array index is 16. Sheet column index is 17.
       const LOG_COL_INDEX = 17; 
 
       for (let i = 1; i < values.length; i++) {
         if (String(values[i][0]) === ticketId) { // Col A is ID
-           const currentLog = values[i][16]; // Col Q
+           const currentLog = values[i][16]; // Index 16 (Col Q)
            const newLog = currentLog ? currentLog + "\n" + data.textToAppend : data.textToAppend;
            sheet.getRange(i + 1, LOG_COL_INDEX).setValue(newLog);
            return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
@@ -138,15 +145,15 @@ function doPost(e) {
       const dataRange = sheet.getDataRange();
       const values = dataRange.getValues();
       
-      // Status is Column M (Index 12, Column 13)
-      // Log is Column Q (Index 16, Column 17)
+      // Status is Column M (13th column) -> Index 12 -> Sheet Col 13
+      // Log is Column Q (17th column) -> Index 16 -> Sheet Col 17
       const STATUS_COL_INDEX = 13;
       const LOG_COL_INDEX = 17;
 
       for (let i = 1; i < values.length; i++) {
         if (String(values[i][0]) === ticketId) { // Col A
            sheet.getRange(i + 1, STATUS_COL_INDEX).setValue("Closed"); 
-           const currentLog = values[i][16];
+           const currentLog = values[i][16]; // Index 16 (Col Q)
            const closeNote = `[${new Date().toLocaleTimeString()}] Ticket Closed: ${data.reason}`;
            const newLog = currentLog ? currentLog + "\n" + closeNote : closeNote;
            sheet.getRange(i + 1, LOG_COL_INDEX).setValue(newLog);
@@ -171,7 +178,7 @@ function doGet(e) {
   const data = sheet.getDataRange().getValues();
   const rows = data.slice(1);
 
-  // Map columns to JSON object based on new structure
+  // Map columns to JSON object based on NEW structure
   const tickets = rows.map(row => {
     return {
       id: row[0],               // A
@@ -191,14 +198,9 @@ function doGet(e) {
       contactNumber: row[14],   // O
       techNotes: row[15],       // P
       troubleshootingLog: row[16], // Q
-      attachmentUrl: row[17]    // R
+      attachmentUrl: row[17]    // R (New)
     };
   });
 
   return ContentService.createTextOutput(JSON.stringify(tickets)).setMimeType(ContentService.MimeType.JSON);
-}
-
-function checkPermissions() {
-  const folder = DriveApp.getFolderById(FOLDER_ID);
-  Logger.log("Success! Script has access to folder: " + folder.getName());
 }

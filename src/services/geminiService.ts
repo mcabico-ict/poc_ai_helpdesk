@@ -75,7 +75,7 @@ const createTicketTool: FunctionDeclaration = {
       immediateSuperior: { type: Type.STRING, description: "Superior Name (Optional)." },
       superiorContact: { type: Type.STRING, description: "Superior Email (Required)." },
       troubleshootingLog: { type: Type.STRING, description: "Summary of steps taken BEFORE ticket creation." },
-      attachmentUrl: { type: Type.STRING, description: "URL(s) of uploaded files (Photo, Signature). If multiple, separate with commas." },
+      attachmentUrl: { type: Type.STRING, description: "URL(s) of uploaded files. IMPORTANT: You must provide the URL here if the user uploaded a file earlier." },
       // New fields for Account Support
       requesterName: { type: Type.STRING, description: "Full Name of the user." },
       position: { type: Type.STRING, description: "Job Position." },
@@ -107,11 +107,12 @@ You are the "UBI IT Support Assistant".
   - Appliances: Rice Cookers, Ovens, Microwaves, Refrigerators.
   - Personal devices.
 
-**MEMORY & ATTACHMENTS (CRITICAL)**
-- If the user uploads a file, the chat history will show a user message containing **"URL: ..."**.
-- You **MUST REMEMBER** this URL.
-- When you eventually call \`createTicket\`, you **MUST** include these remembered URLs in the \`attachmentUrl\` parameter.
-- **DO NOT** ask the user to re-upload the file if it is already present in the chat history.
+**MEMORY & ATTACHMENTS (STRICT RULE)**
+- Users may upload files *before* they describe the issue.
+- **ACTION**: Scan the entire conversation history. Look for messages containing "URL:" or "I have uploaded a file".
+- **HOLD** these URLs in your memory.
+- When calling the \`createTicket\` tool, you **MUST** populate the \`attachmentUrl\` field with these URLs.
+- If there are multiple files, join the URLs with a comma.
 
 **DATA REQUIREMENTS**
 1.  **General Hardware**: PID, PIN/Email, Location, Mobile Number, Superior Email.
@@ -126,9 +127,6 @@ You are the "UBI IT Support Assistant".
     - **Emergency Contact Person**: Name, Address, and Contact Number.
 3.  **Attachments**: Check if user has already uploaded **Signature** and **2x2 Photo**. If not, ask for them.
 4.  **Disclaimer**: You MUST inform the user: "Note: This ticket is subject for approval by the HR Department."
-5.  **Data Mapping**:
-    - Put Emergency Contact Name/Address/Number inside the \`description\` field.
-    - If user uploads multiple files, combine URLs into \`attachmentUrl\` separated by a comma.
 
 **CORE BEHAVIOR**
 1.  **Context Holding**: If you create a ticket, **HOLD that Ticket ID**.
