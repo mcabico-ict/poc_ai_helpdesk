@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, AlertCircle, Paperclip, FileText, Zap, ChevronUp } from 'lucide-react';
 import { geminiService } from '../services/geminiService';
