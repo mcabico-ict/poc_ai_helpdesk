@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { ticketStore } from '../store';
 import { Ticket, TicketStatus, TicketSeverity } from '../types';
-import { RefreshCw, ChevronRight, Circle, ClipboardList, X } from 'lucide-react';
+import { RefreshCw, ChevronRight, Circle, ClipboardList, X, Paperclip, ExternalLink } from 'lucide-react';
 
 const TicketManager: React.FC = () => {
   const [tickets, setTickets] = useState<Ticket[]>(ticketStore.getTickets());
@@ -115,20 +116,43 @@ const TicketManager: React.FC = () => {
                             {selectedTicketId === ticket.id && (
                                 <div className="mt-3 pt-3 border-t border-blue-100/50 animate-in slide-in-from-top-1 duration-200 cursor-default" onClick={e => e.stopPropagation()}>
                                     <div className="space-y-3 text-xs">
-                                        <div className="bg-gray-50 p-2.5 rounded border border-gray-100 text-gray-600 leading-relaxed">
+                                        
+                                        {/* Description */}
+                                        <div className="bg-gray-50 p-2.5 rounded border border-gray-100 text-gray-600 leading-relaxed whitespace-pre-line">
                                             {ticket.description}
                                         </div>
-                                        <div className="flex justify-between text-gray-500">
+
+                                        {/* Attachments Section */}
+                                        {ticket.attachmentUrl && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {ticket.attachmentUrl.split(',').map((url, idx) => (
+                                                    <a 
+                                                        key={idx}
+                                                        href={url.trim()} 
+                                                        target="_blank" 
+                                                        rel="noreferrer"
+                                                        className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1.5 rounded border border-gray-200 transition-colors text-[10px] font-medium"
+                                                    >
+                                                        <Paperclip size={10} />
+                                                        Attachment {ticket.attachmentUrl && ticket.attachmentUrl.includes(',') ? idx + 1 : ''}
+                                                        <ExternalLink size={10} className="ml-1 opacity-50"/>
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="flex justify-between text-gray-500 pt-1">
                                             <span>Tech: <strong className="text-gray-700">{ticket.technician}</strong></span>
                                             <span>Status: <strong className="text-gray-700">{ticket.status}</strong></span>
                                         </div>
+                                        
                                         {ticket.troubleshootingLog && (
                                             <div className="bg-blue-50/50 p-2.5 rounded border border-blue-100 text-gray-600">
                                                 <div className="flex items-center gap-1.5 text-blue-500 font-bold text-[10px] uppercase mb-1">
                                                     <ClipboardList size={10} />
                                                     AI Activity Log
                                                 </div>
-                                                <p className="font-mono text-[10px] leading-relaxed">{ticket.troubleshootingLog}</p>
+                                                <p className="font-mono text-[10px] leading-relaxed whitespace-pre-line">{ticket.troubleshootingLog}</p>
                                             </div>
                                         )}
                                     </div>
