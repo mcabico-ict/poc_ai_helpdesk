@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, Sparkles, AlertCircle, Paperclip, FileText, Zap, ChevronUp } from 'lucide-react';
+import { Send, Bot, User, Loader2, Sparkles, AlertCircle, Paperclip, FileText, Zap, Smile, X } from 'lucide-react';
 import { geminiService } from '../services/geminiService';
 import { ticketStore } from '../store';
 import { ChatMessage } from '../types';
@@ -18,6 +18,7 @@ const AIChat: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -47,6 +48,7 @@ const AIChat: React.FC = () => {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setShowTemplates(false);
+    setShowEmojiPicker(false);
     setIsLoading(true);
 
     try {
@@ -144,6 +146,12 @@ const AIChat: React.FC = () => {
       setShowTemplates(false);
       inputRef.current?.focus();
   };
+  
+  const insertEmoji = (emoji: string) => {
+      setInput(prev => prev + emoji);
+      setShowEmojiPicker(false);
+      inputRef.current?.focus();
+  };
 
   const isFileUploadMessage = (content: string) => {
       return content.startsWith("I have uploaded a file:") && content.includes("URL:");
@@ -162,18 +170,23 @@ const AIChat: React.FC = () => {
       {
           label: "Ticket Info",
           emoji: "📝",
-          text: "Here are my details for the ticket:\n\nPID:\nPIN/Email:\nFull Name:\nLocation:\nSubject:\nDescription:"
+          text: "📝 TICKET DETAILS\n\n🆔 PID:\n👤 PIN/Email:\n📛 Full Name:\n📍 Location:\n📝 Subject:\n📄 Description:"
       },
       {
           label: "ID Request",
           emoji: "🆔",
-          text: "I would like to request a Company ID:\n\nFull Name:\nPosition:\nProject/Dept:\nEmployed > 6 Months? (Yes/No):\nEmergency Contact Name:\nEmergency Contact Address:\nEmergency Contact Number:"
+          text: "🆔 ID REQUEST\n\n📛 Full Name:\n💼 Position:\n🏢 Project/Dept:\n📅 Employed > 6 Months? (Yes/No):\n\n🚨 EMERGENCY CONTACT\n👤 Name:\n🏠 Address:\n📞 Number:"
       },
       {
           label: "Account Support",
           emoji: "🔐",
-          text: "I need help with my Account:\n\nFull Name:\nDepartment:\nPosition:\nSystem (Acumatica/Email/UBIAS):\nIssue:"
+          text: "🔐 ACCOUNT SUPPORT\n\n📛 Full Name:\n🏢 Department:\n💼 Position:\n💻 System (Acumatica/Email/UBIAS):\n❓ Issue:"
       }
+  ];
+  
+  const COMMON_EMOJIS = [
+      "👍", "👎", "✅", "❌", "😊", "🤔", 
+      "💻", "🖨️", "🔧", "📅", "📍", "📎"
   ];
 
   return (
@@ -252,9 +265,10 @@ const AIChat: React.FC = () => {
             
             {/* Templates Popover */}
             {showTemplates && (
-                <div className="absolute bottom-full left-0 mb-3 bg-white rounded-xl shadow-xl border border-gray-200 w-64 overflow-hidden animate-in fade-in zoom-in duration-200 z-20">
-                    <div className="bg-gray-50 px-4 py-2 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                        Quick Templates
+                <div className="absolute bottom-14 left-10 bg-white rounded-xl shadow-xl border border-gray-200 w-64 overflow-hidden animate-in fade-in zoom-in duration-200 z-20">
+                    <div className="bg-gray-50 px-4 py-2 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider flex justify-between items-center">
+                        <span>Quick Templates</span>
+                        <button onClick={() => setShowTemplates(false)}><X size={12}/></button>
                     </div>
                     <div className="p-1">
                         {TEMPLATES.map((t, idx) => (
@@ -270,32 +284,60 @@ const AIChat: React.FC = () => {
                     </div>
                 </div>
             )}
+            
+            {/* Emoji Popover */}
+            {showEmojiPicker && (
+                <div className="absolute bottom-14 left-0 bg-white rounded-xl shadow-xl border border-gray-200 w-64 p-2 animate-in fade-in zoom-in duration-200 z-20">
+                    <div className="grid grid-cols-6 gap-1">
+                        {COMMON_EMOJIS.map((emoji, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => insertEmoji(emoji)}
+                                className="w-8 h-8 flex items-center justify-center text-lg hover:bg-blue-50 rounded-lg transition-colors"
+                            >
+                                {emoji}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="flex items-end gap-2">
-                <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isLoading || isUploading}
-                    className="p-3 bg-gray-50 text-gray-500 rounded-xl hover:bg-gray-200 transition-colors mb-0.5"
-                    title="Attach file"
-                >
-                    <Paperclip size={20} />
-                </button>
-                <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    onChange={handleFileUpload}
-                />
-                
-                <div className="relative flex-1">
-                     <button
-                        onClick={() => setShowTemplates(!showTemplates)}
-                        className={`absolute left-3 top-3 text-gray-400 hover:text-yellow-500 transition-colors p-1 rounded ${showTemplates ? 'text-yellow-500 bg-yellow-50' : ''}`}
-                        title="Templates"
+                {/* Tools Bar */}
+                <div className="flex gap-1 pb-0.5">
+                    <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isLoading || isUploading}
+                        className="p-3 bg-gray-50 text-gray-500 rounded-xl hover:bg-gray-200 transition-colors"
+                        title="Attach file"
                     >
-                        <Zap size={16} fill={showTemplates ? "currentColor" : "none"} />
+                        <Paperclip size={20} />
+                    </button>
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        onChange={handleFileUpload}
+                    />
+                    
+                    <button
+                        onClick={() => { setShowEmojiPicker(!showEmojiPicker); setShowTemplates(false); }}
+                        className={`p-3 rounded-xl transition-colors ${showEmojiPicker ? 'bg-blue-100 text-blue-600' : 'bg-gray-50 text-gray-500 hover:bg-gray-200'}`}
+                        title="Add Emoji"
+                    >
+                        <Smile size={20} />
                     </button>
 
+                    <button
+                        onClick={() => { setShowTemplates(!showTemplates); setShowEmojiPicker(false); }}
+                        className={`p-3 rounded-xl transition-colors ${showTemplates ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-50 text-gray-500 hover:bg-gray-200'}`}
+                        title="Use Template"
+                    >
+                        <Zap size={20} />
+                    </button>
+                </div>
+
+                <div className="relative flex-1">
                     <textarea
                         ref={inputRef}
                         value={input}
@@ -303,7 +345,7 @@ const AIChat: React.FC = () => {
                         onKeyDown={handleKeyDown}
                         placeholder="Type message... (Shift+Enter for new line)"
                         rows={1}
-                        className="w-full bg-gray-50 border-0 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-100 focus:bg-white block pl-12 pr-12 py-3.5 shadow-inner resize-none min-h-[48px] max-h-[150px] scrollbar-hide"
+                        className="w-full bg-gray-50 border-0 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-100 focus:bg-white block pl-4 pr-12 py-3.5 shadow-inner resize-none min-h-[48px] max-h-[150px] scrollbar-hide"
                         disabled={isLoading || isUploading}
                         style={{ height: input ? `${Math.min(input.split('\n').length * 24 + 24, 150)}px` : '48px' }}
                     />
