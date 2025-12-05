@@ -1,3 +1,4 @@
+
 // -----------------------------------------------------------------------------
 // UBI TECH SUPPORT AI - BACKEND SCRIPT
 // -----------------------------------------------------------------------------
@@ -7,6 +8,16 @@
 // 3. SELECT "checkPermissions" from the function dropdown menu.
 // 4. Click "Run" and Authorize the permissions.
 // 5. Deploy -> New Deployment.
+//
+// ⚠️ IMPORTANT: To enable File Uploads, you must update "appsscript.json" 
+// (Project Settings -> Show "appsscript.json" manifest file in editor).
+// Replace the "oauthScopes" section with:
+//
+// "oauthScopes": [
+//   "https://www.googleapis.com/auth/spreadsheets",
+//   "https://www.googleapis.com/auth/drive",
+//   "https://www.googleapis.com/auth/script.external_request"
+// ]
 // -----------------------------------------------------------------------------
 
 const SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"; // <--- REPLACE THIS WITH YOUR SHEET ID IF NOT LINKED

@@ -134,7 +134,7 @@ const TicketManager: React.FC = () => {
                                                         className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1.5 rounded border border-gray-200 transition-colors text-[10px] font-medium"
                                                     >
                                                         <Paperclip size={10} />
-                                                        Attachment {ticket.attachmentUrl && ticket.attachmentUrl.includes(',') ? idx + 1 : ''}
+                                                        {ticket.attachmentUrl && ticket.attachmentUrl.includes(',') ? `Attachment ${idx + 1}` : 'View Attachment'}
                                                         <ExternalLink size={10} className="ml-1 opacity-50"/>
                                                     </a>
                                                 ))}

@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, AlertCircle, Paperclip, FileText } from 'lucide-react';
 import { geminiService } from '../services/geminiService';
@@ -135,6 +134,18 @@ const AIChat: React.FC = () => {
     }
   };
 
+  const isFileUploadMessage = (content: string) => {
+      return content.startsWith("I have uploaded a file:") && content.includes("URL:");
+  };
+
+  const getFileName = (content: string) => {
+      try {
+          return content.split("I have uploaded a file: ")[1].split(". URL:")[0];
+      } catch (e) {
+          return "Attachment";
+      }
+  };
+
   return (
     <div className="flex flex-col h-full bg-white relative">
       {/* Centered Header */}
@@ -171,10 +182,10 @@ const AIChat: React.FC = () => {
                                 ? 'text-white bg-gray-900 p-4 rounded-2xl rounded-tr-sm' 
                                 : 'text-gray-700 bg-white border border-gray-100 p-4 rounded-2xl rounded-tl-sm'
                         }`}>
-                            {msg.content.includes("URL: http") ? (
+                            {isFileUploadMessage(msg.content) ? (
                                 <div className="flex items-center gap-2">
                                     <FileText size={16} />
-                                    <span>Attachment Uploaded</span>
+                                    <span>Uploaded: {getFileName(msg.content)}</span>
                                 </div>
                             ) : msg.content}
                         </div>
