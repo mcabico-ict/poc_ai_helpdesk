@@ -57,6 +57,12 @@ const TicketManager: React.FC = () => {
       return null;
   }
 
+  // Helper to parse attachment URLs
+  const getAttachments = (urlStr?: string) => {
+      if (!urlStr) return [];
+      return urlStr.split(',').map(u => u.trim()).filter(Boolean);
+  };
+
   // Floating Window Layout
   return (
     <div className="absolute top-20 right-8 z-50 w-full max-w-md animate-in slide-in-from-right-4 duration-300">
@@ -125,16 +131,16 @@ const TicketManager: React.FC = () => {
                                         {/* Attachments Section */}
                                         {ticket.attachmentUrl && (
                                             <div className="flex flex-wrap gap-2">
-                                                {ticket.attachmentUrl.split(',').map((url, idx) => (
+                                                {getAttachments(ticket.attachmentUrl).map((url, idx, arr) => (
                                                     <a 
                                                         key={idx}
-                                                        href={url.trim()} 
+                                                        href={url} 
                                                         target="_blank" 
                                                         rel="noreferrer"
                                                         className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1.5 rounded border border-gray-200 transition-colors text-[10px] font-medium"
                                                     >
                                                         <Paperclip size={10} />
-                                                        {ticket.attachmentUrl && ticket.attachmentUrl.includes(',') ? `Attachment ${idx + 1}` : 'View Attachment'}
+                                                        {arr.length > 1 ? `Attachment ${idx + 1}` : 'View Attachment'}
                                                         <ExternalLink size={10} className="ml-1 opacity-50"/>
                                                     </a>
                                                 ))}

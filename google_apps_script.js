@@ -2,27 +2,33 @@
 // -----------------------------------------------------------------------------
 // UBI TECH SUPPORT AI - BACKEND SCRIPT
 // -----------------------------------------------------------------------------
-// INSTRUCTIONS:
-// 1. Paste this code into your Google Apps Script editor (code.gs).
-// 2. Click "Save".
-// 3. SELECT "checkPermissions" from the function dropdown menu.
-// 4. Click "Run" and Authorize the permissions.
-// 5. Deploy -> New Deployment.
 //
-// ⚠️ IMPORTANT: To enable File Uploads, you must update "appsscript.json" 
-// (Project Settings -> Show "appsscript.json" manifest file in editor).
-// Replace the "oauthScopes" section with:
-//
-// "oauthScopes": [
-//   "https://www.googleapis.com/auth/spreadsheets",
-//   "https://www.googleapis.com/auth/drive",
-//   "https://www.googleapis.com/auth/script.external_request"
-// ]
+// ⚠️ CRITICAL DEPLOYMENT INSTRUCTIONS:
+// 1. Paste this code into "code.gs".
+// 2. Update "appsscript.json" with the scopes below (Project Settings -> Show manifest).
+//    "oauthScopes": [
+//      "https://www.googleapis.com/auth/spreadsheets",
+//      "https://www.googleapis.com/auth/drive",
+//      "https://www.googleapis.com/auth/script.external_request"
+//    ]
+// 3. RUN THE "setup" FUNCTION manually in the editor to authorize the Drive permissions.
+//    (Select "setup" from dropdown -> Click "Run" -> Review Permissions).
+// 4. Deploy -> New Deployment -> Select "Web app".
+//    - Description: "v3 - Column Alignment"
+//    - Execute as: **Me** (your email)  <-- CRITICAL for file creation
+//    - Who has access: **Anyone**       <-- CRITICAL for public access
 // -----------------------------------------------------------------------------
 
-const SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"; // <--- REPLACE THIS WITH YOUR SHEET ID IF NOT LINKED
+const SPREADSHEET_ID = "1F41Jf4o8fJNWA2Laon1FFLe3lWvnqiUOVumUJKG6VMk"; 
 const SHEET_NAME = "Tickets";
-const FOLDER_ID = "1LzRc9AXeWAwu4rONAO67bVe7mPxmrbnO"; // The specific Drive Folder ID provided
+const FOLDER_ID = "1LzRc9AXeWAwu4rONAO67bVe7mPxmrbnO"; // The specific Drive Folder ID
+
+// RUN THIS ONCE TO AUTHORIZE PERMISSIONS
+function setup() {
+  DriveApp.getRootFolder();
+  SpreadsheetApp.getActiveSpreadsheet();
+  Logger.log("Permissions authorized! You can now Deploy.");
+}
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -50,38 +56,52 @@ function doPost(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet(); // Or openById(SPREADSHEET_ID)
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
 
     // ---------------------------------------------------------
     // ACTION: CREATE TICKET
     // ---------------------------------------------------------
     if (action === "create") {
-      // Append Row
-      // Mapping based on your types:
-      // A: ID, B: PID, C: Date, D: Requester, E: PIN, F: Subject, G: Category, H: Description, 
-      // I: Technician, J: Location, K: Contact, L: Status, M: Severity, N: TechNotes, 
-      // O: Superior, P: SuperiorContact, Q: Log, R: AttachmentURL
-      
+      // Column Order:
+      // A: id
+      // B: dateCreated
+      // C: pid
+      // D: requesterEmail
+      // E: employeePin
+      // F: immediateSuperior
+      // G: superiorContact
+      // H: subject
+      // I: category
+      // J: description
+      // K: technician
+      // L: location
+      // M: status
+      // N: severity
+      // O: contactNumber
+      // P: techNotes
+      // Q: troubleshootingLog
+      // R: attachments
+
       sheet.appendRow([
-        data.id, 
-        data.pid, 
-        data.dateCreated, 
-        data.requesterEmail, 
-        data.employeePin, 
-        data.subject, 
-        data.category, 
-        data.description, 
-        data.technician, 
-        data.location, 
-        data.contactNumber, 
-        data.status, 
-        data.severity, 
-        data.techNotes, 
-        data.immediateSuperior, 
-        data.superiorContact, 
-        data.troubleshootingLog,
-        data.attachmentUrl || "" // Column R
+        data.id,               // A
+        data.dateCreated,      // B
+        data.pid,              // C
+        data.requesterEmail,   // D
+        data.employeePin,      // E
+        data.immediateSuperior,// F
+        data.superiorContact,  // G
+        data.subject,          // H
+        data.category,         // I
+        data.description,      // J
+        data.technician,       // K
+        data.location,         // L
+        data.status,           // M
+        data.severity,         // N
+        data.contactNumber,    // O
+        data.techNotes,        // P
+        data.troubleshootingLog,// Q
+        data.attachmentUrl || "" // R
       ]);
 
       return ContentService.createTextOutput(JSON.stringify({ success: true, id: data.id }))
@@ -96,11 +116,14 @@ function doPost(e) {
       const dataRange = sheet.getDataRange();
       const values = dataRange.getValues();
       
+      // Troubleshooting Log is Column Q (Index 16 in 0-based array, Column 17 in Sheet)
+      const LOG_COL_INDEX = 17; 
+
       for (let i = 1; i < values.length; i++) {
         if (String(values[i][0]) === ticketId) { // Col A is ID
-           const currentLog = values[i][16]; // Col Q is Log (index 16)
+           const currentLog = values[i][16]; // Col Q
            const newLog = currentLog ? currentLog + "\n" + data.textToAppend : data.textToAppend;
-           sheet.getRange(i + 1, 17).setValue(newLog); // set value in Col Q
+           sheet.getRange(i + 1, LOG_COL_INDEX).setValue(newLog);
            return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
         }
       }
@@ -115,17 +138,18 @@ function doPost(e) {
       const dataRange = sheet.getDataRange();
       const values = dataRange.getValues();
       
+      // Status is Column M (Index 12, Column 13)
+      // Log is Column Q (Index 16, Column 17)
+      const STATUS_COL_INDEX = 13;
+      const LOG_COL_INDEX = 17;
+
       for (let i = 1; i < values.length; i++) {
         if (String(values[i][0]) === ticketId) { // Col A
-           // Update Status (Col L -> index 11)
-           sheet.getRange(i + 1, 12).setValue("Closed");
-           
-           // Append closing note to Log (Col Q -> index 16)
+           sheet.getRange(i + 1, STATUS_COL_INDEX).setValue("Closed"); 
            const currentLog = values[i][16];
            const closeNote = `[${new Date().toLocaleTimeString()}] Ticket Closed: ${data.reason}`;
            const newLog = currentLog ? currentLog + "\n" + closeNote : closeNote;
-           sheet.getRange(i + 1, 17).setValue(newLog);
-
+           sheet.getRange(i + 1, LOG_COL_INDEX).setValue(newLog);
            return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
         }
       }
@@ -140,43 +164,40 @@ function doPost(e) {
 }
 
 function doGet(e) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) return ContentService.createTextOutput(JSON.stringify([])).setMimeType(ContentService.MimeType.JSON);
 
   const data = sheet.getDataRange().getValues();
-  const headers = data[0];
   const rows = data.slice(1);
 
+  // Map columns to JSON object based on new structure
   const tickets = rows.map(row => {
     return {
-      id: row[0],
-      pid: row[1],
-      dateCreated: row[2],
-      requesterEmail: row[3],
-      employeePin: row[4],
-      subject: row[5],
-      category: row[6],
-      description: row[7],
-      technician: row[8],
-      location: row[9],
-      contactNumber: row[10],
-      status: row[11],
-      severity: row[12],
-      techNotes: row[13],
-      immediateSuperior: row[14],
-      superiorContact: row[15],
-      troubleshootingLog: row[16],
-      attachmentUrl: row[17] // Return attachment URL
+      id: row[0],               // A
+      dateCreated: row[1],      // B
+      pid: row[2],              // C
+      requesterEmail: row[3],   // D
+      employeePin: row[4],      // E
+      immediateSuperior: row[5],// F
+      superiorContact: row[6],  // G
+      subject: row[7],          // H
+      category: row[8],         // I
+      description: row[9],      // J
+      technician: row[10],      // K
+      location: row[11],        // L
+      status: row[12],          // M
+      severity: row[13],        // N
+      contactNumber: row[14],   // O
+      techNotes: row[15],       // P
+      troubleshootingLog: row[16], // Q
+      attachmentUrl: row[17]    // R
     };
   });
 
   return ContentService.createTextOutput(JSON.stringify(tickets)).setMimeType(ContentService.MimeType.JSON);
 }
 
-// ------------------------------------------------------------------
-// IMPORTANT: RUN THIS FUNCTION MANUALLY ONCE TO AUTHORIZE PERMISSIONS
-// ------------------------------------------------------------------
 function checkPermissions() {
   const folder = DriveApp.getFolderById(FOLDER_ID);
   Logger.log("Success! Script has access to folder: " + folder.getName());

@@ -89,7 +89,6 @@ const AIChat: React.FC = () => {
           const url = await ticketStore.uploadFile(file);
           
           // Insert a system message into chat history so AI knows about the file
-          
           const fileMessage: ChatMessage = {
               id: Date.now().toString(),
               role: 'user', // We mark it as user role so Gemini processes it as part of the user's input/context
@@ -118,11 +117,20 @@ const AIChat: React.FC = () => {
 
       } catch (error: any) {
           console.error(error);
-          alert(`Failed to upload: ${error}\n\nTroubleshooting:\n1. Did you deploy a "New Version" in Apps Script?\n2. Does your account have Edit access to the Google Drive folder?`);
+          
+          // Add friendly error message to chat instead of blocking alert
+          const errorMessage: ChatMessage = {
+              id: Date.now().toString(),
+              role: 'model',
+              content: `⚠️ UPLOAD FAILED\n\nError: ${error.message || error}\n\nTROUBLESHOOTING STEPS:\n1. Open your Google Apps Script Editor.\n2. Ensure "appsscript.json" has the correct scopes.\n3. CRITICAL: Run the "setup" function manually in the editor to authorize the new Drive permissions.\n4. Ensure Deployment is "Execute as: Me" and "Who has access: Anyone".`,
+              timestamp: new Date()
+          };
+          setMessages(prev => [...prev, errorMessage]);
+
       } finally {
           setIsUploading(false);
           setIsLoading(false);
-          // Reset input
+          // Reset input to allow retrying same file
           if (fileInputRef.current) fileInputRef.current.value = '';
       }
   };
