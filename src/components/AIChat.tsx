@@ -11,7 +11,7 @@ const AIChat: React.FC = () => {
     {
       id: '1',
       role: 'model',
-      content: 'Good day. I am the UBI IT Support Assistant.\n\nTo begin, please state your name and how you would like to be addressed (e.g., Mr., Ms., Engr.).',
+      content: 'Hello! I am the UBI IT Support Assistant.\n\nYou can speak to me in English, Tagalog, or Bisaya.\nTo begin, please tell me your name and how I can help you today.',
       timestamp: new Date()
     }
   ]);
@@ -123,7 +123,7 @@ const AIChat: React.FC = () => {
           const errorMessage: ChatMessage = {
               id: Date.now().toString(),
               role: 'model',
-              content: `⚠️ UPLOAD FAILED\n\nError: ${error.message || error}\n\nTROUBLESHOOTING STEPS:\n1. Open your Google Apps Script Editor.\n2. Ensure "appsscript.json" has the correct scopes.\n3. CRITICAL: Run the "setup" function manually in the editor to authorize the new Drive permissions.\n4. Ensure Deployment is "Execute as: Me" and "Who has access: Anyone".`,
+              content: `⚠️ UPLOAD FAILED\n\nError: ${error.message || error}\n\nTROUBLESHOOTING STEPS:\n1. Open your Google Apps Script Editor.\n2. Ensure "appsscript.json" has the correct scopes.\n3. CRITICAL: Run the "testDrivePermissions" function manually in the editor to authorize the new Drive permissions.\n4. Ensure Deployment is "Execute as: Me" and "Who has access: Anyone".`,
               timestamp: new Date()
           };
           setMessages(prev => [...prev, errorMessage]);

@@ -1,52 +1,45 @@
 
-
 // -----------------------------------------------------------------------------
 // UBI TECH SUPPORT AI - BACKEND SCRIPT
-// VERSION: 2.1 (Strict Columns & Soft Setup)
+// VERSION: 2.2 (Drive Auth Fix)
 // -----------------------------------------------------------------------------
 //
-// ⚠️ CRITICAL DEPLOYMENT INSTRUCTIONS:
-// 1. Paste this code into "code.gs".
-// 2. Update "appsscript.json" with the scopes below (Project Settings -> Show manifest).
-//    "oauthScopes": [
-//      "https://www.googleapis.com/auth/spreadsheets",
-//      "https://www.googleapis.com/auth/drive",
-//      "https://www.googleapis.com/auth/script.external_request"
-//    ]
-// 3. RUN THE "setup" FUNCTION manually in the editor.
-// 4. Deploy -> New Deployment -> Select "Web app".
-//    - Execute as: **Me** (your email)
-//    - Who has access: **Anyone**
+// ⚠️ CRITICAL SETUP:
+// 1. Paste this code.
+// 2. Select the function "testDrivePermissions" from the dropdown menu.
+// 3. Click "Run".
+// 4. A popup will appear. Click "Review Permissions" -> Choose Account -> Allow.
+//    (If it says "Unsafe", click Advanced -> Go to ... (unsafe)).
+// 5. Once "testDrivePermissions" completes successfully, Deploy -> New Version.
 // -----------------------------------------------------------------------------
 
 const SPREADSHEET_ID = "1F41Jf4o8fJNWA2Laon1FFLe3lWvnqiUOVumUJKG6VMk"; 
 const SHEET_NAME = "Tickets";
 const FOLDER_ID = "1LzRc9AXeWAwu4rONAO67bVe7mPxmrbnO"; 
 
-function setup() {
-  Logger.log("--- STARTING SETUP (v2.1) ---");
-  
-  // SOFT CHECK: We catch errors here to avoid 'Server Error' crashing the setup process.
-  
+function testDrivePermissions() {
+  Logger.log("--- TESTING DRIVE PERMISSIONS ---");
   try {
     const folder = DriveApp.getFolderById(FOLDER_ID);
-    Logger.log("✅ SUCCESS: Connected to Drive Folder '" + folder.getName() + "'");
+    Logger.log("✅ ACCESS GRANTED to Folder: " + folder.getName());
+    
+    // Create a temporary file to PROVE write access
+    const tempFile = folder.createFile("auth_test.txt", "This verifies the script can write to Drive.");
+    Logger.log("✅ WRITE SUCCESS: Created temp file.");
+    tempFile.setTrashed(true);
+    Logger.log("✅ DELETE SUCCESS: Cleaned up temp file.");
+    
+    Logger.log("------------------------------------------------");
+    Logger.log("🎉 PERMISSIONS ARE GOOD! You can now Deploy.");
+    Logger.log("------------------------------------------------");
   } catch (e) {
-    Logger.log("⚠️ WARNING: Could not verify Drive Folder in Editor.");
-    Logger.log("   Details: " + e.toString());
-    Logger.log("   NOTE: This is common in the Script Editor. If you have Edit access, the Web App will likely still work.");
+    Logger.log("❌ FAILED: " + e.toString());
+    Logger.log("👉 ACTION: Please ensure 'appsscript.json' has the drive scope and you clicked 'Allow' in the popup.");
   }
+}
 
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    Logger.log("✅ SUCCESS: Connected to Spreadsheet '" + ss.getName() + "'");
-  } catch (e) {
-    Logger.log("❌ FAILED: Could not access Spreadsheet ID: " + SPREADSHEET_ID);
-    Logger.log("   Details: " + e.toString());
-  }
-  
-  Logger.log("--- SETUP FINISHED ---");
-  Logger.log("Please proceed to Deploy > New Deployment.");
+function setup() {
+  testDrivePermissions();
 }
 
 function doPost(e) {
@@ -61,18 +54,26 @@ function doPost(e) {
     // ACTION: UPLOAD FILE
     // ---------------------------------------------------------
     if (action === "upload") {
-      const folder = DriveApp.getFolderById(FOLDER_ID);
-      const contentType = data.mimeType || "application/octet-stream";
-      const blob = Utilities.newBlob(Utilities.base64Decode(data.fileData), contentType, data.fileName);
-      const file = folder.createFile(blob);
-      
-      // Ensure public visibility for the AI/User to view it
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      
-      return ContentService.createTextOutput(JSON.stringify({ 
-        success: true, 
-        url: file.getUrl() 
-      })).setMimeType(ContentService.MimeType.JSON);
+      try {
+        const folder = DriveApp.getFolderById(FOLDER_ID);
+        const contentType = data.mimeType || "application/octet-stream";
+        const blob = Utilities.newBlob(Utilities.base64Decode(data.fileData), contentType, data.fileName);
+        const file = folder.createFile(blob);
+        
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        
+        return ContentService.createTextOutput(JSON.stringify({ 
+          success: true, 
+          url: file.getUrl() 
+        })).setMimeType(ContentService.MimeType.JSON);
+        
+      } catch (uploadError) {
+        // Detailed error for upload failures
+        return ContentService.createTextOutput(JSON.stringify({ 
+          success: false, 
+          error: "Drive Upload Failed: " + uploadError.toString() 
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
     }
 
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -82,29 +83,25 @@ function doPost(e) {
     // ACTION: CREATE TICKET
     // ---------------------------------------------------------
     if (action === "create") {
-      // STRICT COLUMN ALIGNMENT (18 Columns)
-      // Index: 0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15  16  17
-      // Col:   A   B   C   D   E   F   G   H   I   J   K   L   M   N   O   P   Q   R
-      
       sheet.appendRow([
-        data.id,                 // A: Ticket ID
-        data.dateCreated,        // B: Date Created
-        data.pid,                // C: Property ID
-        data.requesterEmail,     // D: Requester Email
-        data.employeePin,        // E: Employee PIN
-        data.immediateSuperior,  // F: Immediate Superior
-        data.superiorContact,    // G: Superior Contact
-        data.subject,            // H: Subject
-        data.category,           // I: Category
-        data.description,        // J: Description
-        data.technician,         // K: Technician
-        data.location,           // L: Location
-        data.status,             // M: Status
-        data.severity,           // N: Severity
-        data.contactNumber,      // O: Contact Number
-        data.techNotes,          // P: Tech Notes
-        data.troubleshootingLog, // Q: Troubleshooting Log
-        data.attachmentUrl || "" // R: Attachments (Links)
+        data.id,                 // A
+        data.dateCreated,        // B
+        data.pid,                // C
+        data.requesterEmail,     // D
+        data.employeePin,        // E
+        data.immediateSuperior,  // F
+        data.superiorContact,    // G
+        data.subject,            // H
+        data.category,           // I
+        data.description,        // J
+        data.technician,         // K
+        data.location,           // L
+        data.status,             // M
+        data.severity,           // N
+        data.contactNumber,      // O
+        data.techNotes,          // P
+        data.troubleshootingLog, // Q
+        data.attachmentUrl || "" // R
       ]);
 
       return ContentService.createTextOutput(JSON.stringify({ success: true, id: data.id }))
@@ -118,13 +115,11 @@ function doPost(e) {
       const ticketId = String(data.ticketId);
       const dataRange = sheet.getDataRange();
       const values = dataRange.getValues();
-      
-      // Target: Column Q (Log) -> Index 17 (1-based in getRange, 16 in array)
       const LOG_COL_INDEX = 17; 
 
       for (let i = 1; i < values.length; i++) {
         if (String(values[i][0]) === ticketId) { 
-           const currentLog = values[i][16]; // Col Q is index 16
+           const currentLog = values[i][16]; 
            const newLog = currentLog ? currentLog + "\n" + data.textToAppend : data.textToAppend;
            sheet.getRange(i + 1, LOG_COL_INDEX).setValue(newLog);
            return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
@@ -140,9 +135,6 @@ function doPost(e) {
       const ticketId = String(data.ticketId);
       const dataRange = sheet.getDataRange();
       const values = dataRange.getValues();
-      
-      // Target: Column M (Status) -> Index 13 (1-based)
-      // Target: Column Q (Log) -> Index 17 (1-based)
       const STATUS_COL_INDEX = 13;
       const LOG_COL_INDEX = 17;
 
@@ -176,24 +168,24 @@ function doGet(e) {
 
   const tickets = rows.map(row => {
     return {
-      id: row[0],               // A
-      dateCreated: row[1],      // B
-      pid: row[2],              // C
-      requesterEmail: row[3],   // D
-      employeePin: row[4],      // E
-      immediateSuperior: row[5],// F
-      superiorContact: row[6],  // G
-      subject: row[7],          // H
-      category: row[8],         // I
-      description: row[9],      // J
-      technician: row[10],      // K
-      location: row[11],        // L
-      status: row[12],          // M
-      severity: row[13],        // N
-      contactNumber: row[14],   // O
-      techNotes: row[15],       // P
-      troubleshootingLog: row[16], // Q
-      attachmentUrl: row[17]    // R
+      id: row[0],
+      dateCreated: row[1],
+      pid: row[2],
+      requesterEmail: row[3],
+      employeePin: row[4],
+      immediateSuperior: row[5],
+      superiorContact: row[6],
+      subject: row[7],
+      category: row[8],
+      description: row[9],
+      technician: row[10],
+      location: row[11],
+      status: row[12],
+      severity: row[13],
+      contactNumber: row[14],
+      techNotes: row[15],
+      troubleshootingLog: row[16],
+      attachmentUrl: row[17]
     };
   });
 
