@@ -11,7 +11,7 @@ const AIChat: React.FC = () => {
     {
       id: '1',
       role: 'model',
-      content: 'Hello! I am the UBI IT Support Assistant.\n\nYou can speak to me in English, Tagalog, or Bisaya.\nTo begin, please tell me your name and how I can help you today.',
+      content: 'Hello! I am the UBI IT Support Assistant.\n\nYou can speak to me in English, Tagalog, or Bisaya.\nTo begin, please tell me your name.',
       timestamp: new Date()
     }
   ]);

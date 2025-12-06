@@ -1,16 +1,7 @@
 
 // -----------------------------------------------------------------------------
 // UBI TECH SUPPORT AI - BACKEND SCRIPT
-// VERSION: 2.2 (Drive Auth Fix)
-// -----------------------------------------------------------------------------
-//
-// ⚠️ CRITICAL SETUP:
-// 1. Paste this code.
-// 2. Select the function "testDrivePermissions" from the dropdown menu.
-// 3. Click "Run".
-// 4. A popup will appear. Click "Review Permissions" -> Choose Account -> Allow.
-//    (If it says "Unsafe", click Advanced -> Go to ... (unsafe)).
-// 5. Once "testDrivePermissions" completes successfully, Deploy -> New Version.
+// VERSION: 3.0 (Robust Uploads)
 // -----------------------------------------------------------------------------
 
 const SPREADSHEET_ID = "1F41Jf4o8fJNWA2Laon1FFLe3lWvnqiUOVumUJKG6VMk"; 
@@ -22,19 +13,11 @@ function testDrivePermissions() {
   try {
     const folder = DriveApp.getFolderById(FOLDER_ID);
     Logger.log("✅ ACCESS GRANTED to Folder: " + folder.getName());
-    
-    // Create a temporary file to PROVE write access
-    const tempFile = folder.createFile("auth_test.txt", "This verifies the script can write to Drive.");
-    Logger.log("✅ WRITE SUCCESS: Created temp file.");
+    const tempFile = folder.createFile("auth_test.txt", "Write test.");
     tempFile.setTrashed(true);
-    Logger.log("✅ DELETE SUCCESS: Cleaned up temp file.");
-    
-    Logger.log("------------------------------------------------");
-    Logger.log("🎉 PERMISSIONS ARE GOOD! You can now Deploy.");
-    Logger.log("------------------------------------------------");
+    Logger.log("✅ WRITE SUCCESS.");
   } catch (e) {
     Logger.log("❌ FAILED: " + e.toString());
-    Logger.log("👉 ACTION: Please ensure 'appsscript.json' has the drive scope and you clicked 'Allow' in the popup.");
   }
 }
 
@@ -50,28 +33,37 @@ function doPost(e) {
     const data = JSON.parse(e.postData.contents);
     const action = data.action || "create";
 
-    // ---------------------------------------------------------
-    // ACTION: UPLOAD FILE
-    // ---------------------------------------------------------
+    // =========================================================
+    // 📂 UPLOAD METHOD IS HERE
+    // =========================================================
     if (action === "upload") {
       try {
         const folder = DriveApp.getFolderById(FOLDER_ID);
         const contentType = data.mimeType || "application/octet-stream";
         const blob = Utilities.newBlob(Utilities.base64Decode(data.fileData), contentType, data.fileName);
-        const file = folder.createFile(blob);
         
-        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        // 1. Create the file in Drive
+        const file = folder.createFile(blob);
+        let fileUrl = file.getUrl();
+
+        // 2. Try to make it accessible (link sharing)
+        // Wrapped in try/catch so it doesn't crash if Org Policy blocks it
+        try {
+            file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        } catch (permError) {
+            // Fallback: If we can't make it public, just return the private link.
+            // The technician can still open it if they have access to the folder.
+        }
         
         return ContentService.createTextOutput(JSON.stringify({ 
           success: true, 
-          url: file.getUrl() 
+          url: fileUrl 
         })).setMimeType(ContentService.MimeType.JSON);
         
       } catch (uploadError) {
-        // Detailed error for upload failures
         return ContentService.createTextOutput(JSON.stringify({ 
           success: false, 
-          error: "Drive Upload Failed: " + uploadError.toString() 
+          error: "Upload Failed: " + uploadError.toString() 
         })).setMimeType(ContentService.MimeType.JSON);
       }
     }
@@ -79,9 +71,9 @@ function doPost(e) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
 
-    // ---------------------------------------------------------
-    // ACTION: CREATE TICKET
-    // ---------------------------------------------------------
+    // =========================================================
+    // 📝 CREATE TICKET
+    // =========================================================
     if (action === "create") {
       sheet.appendRow([
         data.id,                 // A
@@ -108,9 +100,9 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // ---------------------------------------------------------
-    // ACTION: UPDATE LOG
-    // ---------------------------------------------------------
+    // =========================================================
+    // 🔄 UPDATE LOG
+    // =========================================================
     if (action === "updateLog") {
       const ticketId = String(data.ticketId);
       const dataRange = sheet.getDataRange();
@@ -128,9 +120,9 @@ function doPost(e) {
       return ContentService.createTextOutput(JSON.stringify({ error: "Ticket not found" })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // ---------------------------------------------------------
-    // ACTION: CLOSE TICKET
-    // ---------------------------------------------------------
+    // =========================================================
+    // 🔒 CLOSE TICKET
+    // =========================================================
     if (action === "closeTicket") {
       const ticketId = String(data.ticketId);
       const dataRange = sheet.getDataRange();
