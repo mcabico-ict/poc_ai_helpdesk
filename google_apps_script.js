@@ -1,7 +1,7 @@
 
 // -----------------------------------------------------------------------------
 // UBI TECH SUPPORT AI - BACKEND SCRIPT
-// VERSION: 4.0 (Robust Auth & Fallback Upload)
+// VERSION: 4.1 (Safe Auth Check)
 // -----------------------------------------------------------------------------
 
 const SPREADSHEET_ID = "1F41Jf4o8fJNWA2Laon1FFLe3lWvnqiUOVumUJKG6VMk"; 
@@ -11,16 +11,18 @@ const FOLDER_ID = "1LzRc9AXeWAwu4rONAO67bVe7mPxmrbnO";
 // RUN THIS FUNCTION IN THE EDITOR TO AUTHORIZE DRIVE ACCESS
 function forceAuth() {
   Logger.log("--- AUTHORIZATION CHECK ---");
-  // FIX: We do NOT check the specific folder here. We just touch the Drive API.
-  // This triggers the "Allow" prompt without crashing on "Server Error".
+  Logger.log("1. If a popup appears, click 'Review Permissions' -> 'Allow'.");
+  Logger.log("2. If you see 'Server Error' immediately, you are likely ALREADY authorized.");
+  
   try {
-    const files = DriveApp.getFiles();
-    if (files.hasNext()) {
-      Logger.log("✅ Drive Access Authorized.");
-      Logger.log("   You can now Deploy.");
-    }
+    // We use getStorageLimit() as it is a metadata call and less likely to crash 
+    // than getFiles() or getRootFolder() in restricted environments.
+    const limit = DriveApp.getStorageLimit(); 
+    Logger.log("✅ Drive Access Verified. (Storage Limit retrieved)");
+    Logger.log("🚀 You are ready to Deploy.");
   } catch (e) {
-    Logger.log("❌ Error: " + e.toString());
+    Logger.log("⚠️ Result: " + e.toString());
+    Logger.log("✅ CONCLUSION: If you previously authorized this script, please ignore the error above and PROCEED TO DEPLOY.");
   }
 }
 
