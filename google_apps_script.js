@@ -1,28 +1,30 @@
 
 // -----------------------------------------------------------------------------
 // UBI TECH SUPPORT AI - BACKEND SCRIPT
-// VERSION: 3.0 (Robust Uploads)
+// VERSION: 3.1 (Auth Fix)
 // -----------------------------------------------------------------------------
 
 const SPREADSHEET_ID = "1F41Jf4o8fJNWA2Laon1FFLe3lWvnqiUOVumUJKG6VMk"; 
 const SHEET_NAME = "Tickets";
 const FOLDER_ID = "1LzRc9AXeWAwu4rONAO67bVe7mPxmrbnO"; 
 
-function testDrivePermissions() {
-  Logger.log("--- TESTING DRIVE PERMISSIONS ---");
+// RUN THIS FUNCTION IN THE EDITOR TO AUTHORIZE DRIVE ACCESS
+function forceAuth() {
+  Logger.log("--- AUTHORIZATION CHECK ---");
+  // We access RootFolder first because it never fails due to invalid ID.
+  // This forces the 'Review Permissions' popup to appear.
+  const root = DriveApp.getRootFolder(); 
+  Logger.log("✅ Drive Service Active. Root: " + root.getName());
+  
+  // Now try the specific folder
   try {
     const folder = DriveApp.getFolderById(FOLDER_ID);
-    Logger.log("✅ ACCESS GRANTED to Folder: " + folder.getName());
-    const tempFile = folder.createFile("auth_test.txt", "Write test.");
-    tempFile.setTrashed(true);
-    Logger.log("✅ WRITE SUCCESS.");
+    Logger.log("✅ Specific Folder Found: " + folder.getName());
   } catch (e) {
-    Logger.log("❌ FAILED: " + e.toString());
+    Logger.log("⚠️ WARNING: Could not verify specific folder ID. Check permissions.");
   }
-}
-
-function setup() {
-  testDrivePermissions();
+  
+  Logger.log("--- READY TO DEPLOY ---");
 }
 
 function doPost(e) {
@@ -34,7 +36,7 @@ function doPost(e) {
     const action = data.action || "create";
 
     // =========================================================
-    // 📂 UPLOAD METHOD IS HERE
+    // 📂 UPLOAD METHOD
     // =========================================================
     if (action === "upload") {
       try {
@@ -42,22 +44,19 @@ function doPost(e) {
         const contentType = data.mimeType || "application/octet-stream";
         const blob = Utilities.newBlob(Utilities.base64Decode(data.fileData), contentType, data.fileName);
         
-        // 1. Create the file in Drive
+        // 1. Create file
         const file = folder.createFile(blob);
-        let fileUrl = file.getUrl();
-
-        // 2. Try to make it accessible (link sharing)
-        // Wrapped in try/catch so it doesn't crash if Org Policy blocks it
+        
+        // 2. Set sharing (Optional - wrapped in try/catch to avoid crash)
         try {
             file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-        } catch (permError) {
-            // Fallback: If we can't make it public, just return the private link.
-            // The technician can still open it if they have access to the folder.
+        } catch (e) {
+            // Ignore sharing errors if org policy restricts it
         }
         
         return ContentService.createTextOutput(JSON.stringify({ 
           success: true, 
-          url: fileUrl 
+          url: file.getUrl() 
         })).setMimeType(ContentService.MimeType.JSON);
         
       } catch (uploadError) {
@@ -107,7 +106,7 @@ function doPost(e) {
       const ticketId = String(data.ticketId);
       const dataRange = sheet.getDataRange();
       const values = dataRange.getValues();
-      const LOG_COL_INDEX = 17; 
+      const LOG_COL_INDEX = 17; // Column Q
 
       for (let i = 1; i < values.length; i++) {
         if (String(values[i][0]) === ticketId) { 
@@ -127,8 +126,8 @@ function doPost(e) {
       const ticketId = String(data.ticketId);
       const dataRange = sheet.getDataRange();
       const values = dataRange.getValues();
-      const STATUS_COL_INDEX = 13;
-      const LOG_COL_INDEX = 17;
+      const STATUS_COL_INDEX = 13; // Column M
+      const LOG_COL_INDEX = 17;    // Column Q
 
       for (let i = 1; i < values.length; i++) {
         if (String(values[i][0]) === ticketId) {
