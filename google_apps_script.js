@@ -1,7 +1,7 @@
 
 // -----------------------------------------------------------------------------
 // UBI TECH SUPPORT AI - BACKEND SCRIPT
-// VERSION: 3.2 (Restricted Auth Fix)
+// VERSION: 4.0 (Robust Auth & Fallback Upload)
 // -----------------------------------------------------------------------------
 
 const SPREADSHEET_ID = "1F41Jf4o8fJNWA2Laon1FFLe3lWvnqiUOVumUJKG6VMk"; 
@@ -11,20 +11,16 @@ const FOLDER_ID = "1LzRc9AXeWAwu4rONAO67bVe7mPxmrbnO";
 // RUN THIS FUNCTION IN THE EDITOR TO AUTHORIZE DRIVE ACCESS
 function forceAuth() {
   Logger.log("--- AUTHORIZATION CHECK ---");
-  
-  // FIX: We REMOVED DriveApp.getRootFolder() because it causes Server Errors 
-  // in environments with restricted permissions.
-  
+  // FIX: We do NOT check the specific folder here. We just touch the Drive API.
+  // This triggers the "Allow" prompt without crashing on "Server Error".
   try {
-    // We only check the specific folder you need access to.
-    const folder = DriveApp.getFolderById(FOLDER_ID);
-    Logger.log("✅ SUCCESS: Connected to Drive Folder: " + folder.getName());
-    Logger.log("    You are ready to Deploy.");
+    const files = DriveApp.getFiles();
+    if (files.hasNext()) {
+      Logger.log("✅ Drive Access Authorized.");
+      Logger.log("   You can now Deploy.");
+    }
   } catch (e) {
-    Logger.log("⚠️ WARNING: Could not access the specific Folder ID.");
-    Logger.log("    Error details: " + e.toString());
-    Logger.log("    Please ensure your account has 'Editor' access to this folder.");
-    // Even if this fails, we want the script to finish without crashing the editor.
+    Logger.log("❌ Error: " + e.toString());
   }
 }
 
@@ -37,22 +33,29 @@ function doPost(e) {
     const action = data.action || "create";
 
     // =========================================================
-    // 📂 UPLOAD METHOD
+    // 📂 UPLOAD METHOD (ROBUST)
     // =========================================================
     if (action === "upload") {
       try {
-        const folder = DriveApp.getFolderById(FOLDER_ID);
         const contentType = data.mimeType || "application/octet-stream";
         const blob = Utilities.newBlob(Utilities.base64Decode(data.fileData), contentType, data.fileName);
         
-        // 1. Create file
-        const file = folder.createFile(blob);
+        let file;
         
-        // 2. Set sharing (Optional - wrapped in try/catch to avoid crash)
+        // STRATEGY: Try specific folder, Fallback to Root if permissions fail
+        try {
+           const folder = DriveApp.getFolderById(FOLDER_ID);
+           file = folder.createFile(blob);
+        } catch (folderError) {
+           // Fallback: Create in Root Drive so the user doesn't lose the file
+           file = DriveApp.createFile(blob);
+        }
+        
+        // Optional: Make public (ignore errors if restricted)
         try {
             file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-        } catch (e) {
-            // Ignore sharing errors if org policy restricts it
+        } catch (shareError) {
+            // Sharing failed (likely org policy), but file exists. Proceed.
         }
         
         return ContentService.createTextOutput(JSON.stringify({ 
