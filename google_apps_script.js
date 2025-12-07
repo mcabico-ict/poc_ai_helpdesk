@@ -1,7 +1,7 @@
 
 // -----------------------------------------------------------------------------
 // UBI TECH SUPPORT AI - BACKEND SCRIPT
-// VERSION: 3.1 (Auth Fix)
+// VERSION: 3.2 (Restricted Auth Fix)
 // -----------------------------------------------------------------------------
 
 const SPREADSHEET_ID = "1F41Jf4o8fJNWA2Laon1FFLe3lWvnqiUOVumUJKG6VMk"; 
@@ -11,20 +11,21 @@ const FOLDER_ID = "1LzRc9AXeWAwu4rONAO67bVe7mPxmrbnO";
 // RUN THIS FUNCTION IN THE EDITOR TO AUTHORIZE DRIVE ACCESS
 function forceAuth() {
   Logger.log("--- AUTHORIZATION CHECK ---");
-  // We access RootFolder first because it never fails due to invalid ID.
-  // This forces the 'Review Permissions' popup to appear.
-  const root = DriveApp.getRootFolder(); 
-  Logger.log("✅ Drive Service Active. Root: " + root.getName());
   
-  // Now try the specific folder
+  // FIX: We REMOVED DriveApp.getRootFolder() because it causes Server Errors 
+  // in environments with restricted permissions.
+  
   try {
+    // We only check the specific folder you need access to.
     const folder = DriveApp.getFolderById(FOLDER_ID);
-    Logger.log("✅ Specific Folder Found: " + folder.getName());
+    Logger.log("✅ SUCCESS: Connected to Drive Folder: " + folder.getName());
+    Logger.log("    You are ready to Deploy.");
   } catch (e) {
-    Logger.log("⚠️ WARNING: Could not verify specific folder ID. Check permissions.");
+    Logger.log("⚠️ WARNING: Could not access the specific Folder ID.");
+    Logger.log("    Error details: " + e.toString());
+    Logger.log("    Please ensure your account has 'Editor' access to this folder.");
+    // Even if this fails, we want the script to finish without crashing the editor.
   }
-  
-  Logger.log("--- READY TO DEPLOY ---");
 }
 
 function doPost(e) {
