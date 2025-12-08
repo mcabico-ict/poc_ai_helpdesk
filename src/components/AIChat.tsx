@@ -1,6 +1,5 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, Sparkles, AlertCircle, Paperclip, FileText, Zap, Smile, X } from 'lucide-react';
+import { Send, Bot, User, Loader2, Sparkles, AlertCircle, Paperclip, FileText, Zap, Smile, X, Trash2 } from 'lucide-react';
 import { geminiService } from '../services/geminiService';
 import { ticketStore } from '../store';
 import { ChatMessage } from '../types';
@@ -35,6 +34,18 @@ const AIChat: React.FC = () => {
     }
   }, [messages, isLoading]);
 
+  const handleClearChat = () => {
+      if (window.confirm("Are you sure you want to clear the conversation? This will reset the AI's memory.")) {
+          setMessages([{
+            id: Date.now().toString(),
+            role: 'model',
+            content: 'Conversation reset. \n\nHello! I am the UBI IT Support Assistant. How can I help you today?',
+            timestamp: new Date()
+          }]);
+          ticketStore.setCurrentUserQuery(null);
+      }
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -52,6 +63,7 @@ const AIChat: React.FC = () => {
     setIsLoading(true);
 
     try {
+        // Prepare history for Gemini - Filter out initial prompt if needed, and rely on Service to slice
         const history = messages
             .filter(m => m.id !== '1')
             .map(m => ({
@@ -192,16 +204,23 @@ const AIChat: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-white relative">
       {/* Centered Header */}
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-center bg-white z-10 shrink-0">
-         <div className="flex flex-col items-center gap-2">
-            <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center text-white shadow-lg shadow-gray-200">
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white z-10 shrink-0">
+         <div className="flex items-center gap-3">
+             <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center text-white shadow-lg shadow-gray-200">
                 <Bot size={20} />
-            </div>
-            <div className="text-center">
+             </div>
+             <div>
                 <h2 className="text-sm font-bold text-gray-900">UBI TechSupport AI</h2>
                 <p className="text-xs text-gray-400">Procedure Aware (PM-IT-04)</p>
-            </div>
+             </div>
          </div>
+         <button 
+            onClick={handleClearChat}
+            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+            title="Reset Chat & Clear Memory"
+         >
+            <Trash2 size={18} />
+         </button>
       </div>
 
       {/* Messages */}

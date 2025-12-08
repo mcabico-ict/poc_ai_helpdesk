@@ -1,7 +1,7 @@
 
 // -----------------------------------------------------------------------------
 // UBI TECH SUPPORT AI - BACKEND SCRIPT
-// VERSION: 4.1 (Safe Auth Check)
+// VERSION: 4.2 (Quota Optimized)
 // -----------------------------------------------------------------------------
 
 const SPREADSHEET_ID = "1F41Jf4o8fJNWA2Laon1FFLe3lWvnqiUOVumUJKG6VMk"; 
@@ -11,24 +11,25 @@ const FOLDER_ID = "1LzRc9AXeWAwu4rONAO67bVe7mPxmrbnO";
 // RUN THIS FUNCTION IN THE EDITOR TO AUTHORIZE DRIVE ACCESS
 function forceAuth() {
   Logger.log("--- AUTHORIZATION CHECK ---");
-  Logger.log("1. If a popup appears, click 'Review Permissions' -> 'Allow'.");
-  Logger.log("2. If you see 'Server Error' immediately, you are likely ALREADY authorized.");
+  Logger.log("If a popup appears, click 'Review Permissions' -> 'Allow'.");
   
   try {
-    // We use getStorageLimit() as it is a metadata call and less likely to crash 
-    // than getFiles() or getRootFolder() in restricted environments.
+    // We use getStorageLimit() as it is a safe, metadata-only call
     const limit = DriveApp.getStorageLimit(); 
-    Logger.log("✅ Drive Access Verified. (Storage Limit retrieved)");
+    Logger.log("✅ Drive Access Verified.");
     Logger.log("🚀 You are ready to Deploy.");
   } catch (e) {
     Logger.log("⚠️ Result: " + e.toString());
-    Logger.log("✅ CONCLUSION: If you previously authorized this script, please ignore the error above and PROCEED TO DEPLOY.");
+    Logger.log("✅ NOTE: If you previously authorized this script, you can ignore the error above.");
   }
 }
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
-  lock.tryLock(10000);
+  // Reduce lock wait time to prevent quota backup
+  if (!lock.tryLock(5000)) {
+     return ContentService.createTextOutput(JSON.stringify({ error: "Server busy, try again." })).setMimeType(ContentService.MimeType.JSON);
+  }
 
   try {
     const data = JSON.parse(e.postData.contents);
@@ -116,8 +117,12 @@ function doPost(e) {
 
       for (let i = 1; i < values.length; i++) {
         if (String(values[i][0]) === ticketId) { 
-           const currentLog = values[i][16]; 
-           const newLog = currentLog ? currentLog + "\n" + data.textToAppend : data.textToAppend;
+           const currentLog = values[i][16] || ""; 
+           // Safety: Prevent infinite log size
+           if (currentLog.length > 30000) {
+              return ContentService.createTextOutput(JSON.stringify({ success: true, warning: "Log full" })).setMimeType(ContentService.MimeType.JSON);
+           }
+           const newLog = currentLog + "\n" + data.textToAppend;
            sheet.getRange(i + 1, LOG_COL_INDEX).setValue(newLog);
            return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
         }
@@ -138,9 +143,9 @@ function doPost(e) {
       for (let i = 1; i < values.length; i++) {
         if (String(values[i][0]) === ticketId) {
            sheet.getRange(i + 1, STATUS_COL_INDEX).setValue("Closed"); 
-           const currentLog = values[i][16]; 
+           const currentLog = values[i][16] || ""; 
            const closeNote = `[${new Date().toLocaleTimeString()}] Ticket Closed: ${data.reason}`;
-           const newLog = currentLog ? currentLog + "\n" + closeNote : closeNote;
+           const newLog = currentLog + "\n" + closeNote;
            sheet.getRange(i + 1, LOG_COL_INDEX).setValue(newLog);
            return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
         }
