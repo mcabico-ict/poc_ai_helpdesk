@@ -1,8 +1,9 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2, Sparkles, AlertCircle, Paperclip, FileText, Zap, Smile, X, Trash2 } from 'lucide-react';
+import { Send, Bot, User, Loader2, Sparkles, AlertCircle, Paperclip, FileText, Zap, Smile, X, Trash2, PenBox } from 'lucide-react';
 import { geminiService } from '../services/geminiService';
 import { ticketStore } from '../store';
-import { ChatMessage } from '../types';
+import { ChatMessage, TicketSeverity } from '../types';
 
 const AIChat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -19,6 +20,20 @@ const AIChat: React.FC = () => {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   
+  // Manual Ticket Modal State
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualForm, setManualForm] = useState({
+      requester: '', // PIN or Email
+      pid: '',
+      subject: '',
+      category: 'System Unit',
+      location: '',
+      contactNumber: '',
+      superiorContact: '',
+      description: '',
+      severity: TicketSeverity.MINOR
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -29,10 +44,10 @@ const AIChat: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
-    if (!isLoading) {
+    if (!isLoading && !showManualModal) {
         setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, showManualModal]);
 
   const handleClearChat = () => {
       if (window.confirm("Are you sure you want to clear the conversation? This will reset the AI's memory.")) {
@@ -63,7 +78,6 @@ const AIChat: React.FC = () => {
     setIsLoading(true);
 
     try {
-        // Prepare history for Gemini - Filter out initial prompt if needed, and rely on Service to slice
         const history = messages
             .filter(m => m.id !== '1')
             .map(m => ({
@@ -73,6 +87,11 @@ const AIChat: React.FC = () => {
 
         const result = await geminiService.sendMessage(history, userMessage.content);
         
+        // CHECK FOR QUOTA ERROR -> TRIGGER MANUAL MODAL
+        if (result.text && result.text.includes("unable to process AI transactions")) {
+            setShowManualModal(true);
+        }
+
         const botMessage: ChatMessage = {
             id: (Date.now() + 1).toString(),
             role: 'model',
@@ -93,6 +112,47 @@ const AIChat: React.FC = () => {
     } finally {
         setIsLoading(false);
     }
+  };
+
+  const handleManualSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setIsLoading(true);
+      setShowManualModal(false);
+
+      try {
+          const newTicket = await ticketStore.addTicket({
+              requester: manualForm.requester,
+              pid: manualForm.pid,
+              subject: manualForm.subject,
+              category: manualForm.category,
+              description: manualForm.description,
+              location: manualForm.location,
+              severity: manualForm.severity,
+              contactNumber: manualForm.contactNumber,
+              immediateSuperior: '',
+              superiorContact: manualForm.superiorContact,
+              troubleshootingLog: 'Created manually via fallback form.'
+          });
+
+          const confirmationMsg: ChatMessage = {
+              id: Date.now().toString(),
+              role: 'model',
+              content: `✅ **Ticket Created Manually**\n\nTicket ID: **${newTicket.id}**\nSubject: ${newTicket.subject}\n\nThe details have been saved to the database.`,
+              timestamp: new Date()
+          };
+          setMessages(prev => [...prev, confirmationMsg]);
+          ticketStore.setCurrentUserQuery(manualForm.requester);
+          
+      } catch (err) {
+          alert("Failed to create ticket manually.");
+      } finally {
+          setIsLoading(false);
+          // Reset form
+          setManualForm({
+            requester: '', pid: '', subject: '', category: 'System Unit', 
+            location: '', contactNumber: '', superiorContact: '', description: '', severity: TicketSeverity.MINOR
+          });
+      }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -214,13 +274,23 @@ const AIChat: React.FC = () => {
                 <p className="text-xs text-gray-400">Procedure Aware (PM-IT-04)</p>
              </div>
          </div>
-         <button 
-            onClick={handleClearChat}
-            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-            title="Reset Chat & Clear Memory"
-         >
-            <Trash2 size={18} />
-         </button>
+         <div className="flex gap-2">
+            <button 
+                onClick={() => setShowManualModal(true)}
+                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-2"
+                title="Create Ticket Manually"
+            >
+                <PenBox size={18} />
+                <span className="text-xs font-bold hidden sm:inline">Manual Ticket</span>
+            </button>
+            <button 
+                onClick={handleClearChat}
+                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                title="Reset Chat & Clear Memory"
+            >
+                <Trash2 size={18} />
+            </button>
+         </div>
       </div>
 
       {/* Messages */}
@@ -385,6 +455,91 @@ const AIChat: React.FC = () => {
             </div>
         </div>
       </div>
+
+      {/* Manual Ticket Modal */}
+      {showManualModal && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                  <div className="bg-blue-600 p-4 flex justify-between items-center text-white shrink-0">
+                      <div className="flex items-center gap-2">
+                        <PenBox size={20} />
+                        <h3 className="font-bold">Create Ticket Manually</h3>
+                      </div>
+                      <button onClick={() => setShowManualModal(false)} className="hover:bg-blue-700 p-1 rounded"><X size={20}/></button>
+                  </div>
+                  
+                  <form onSubmit={handleManualSubmit} className="p-6 space-y-4 overflow-y-auto">
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <label className="block text-xs font-bold text-gray-700 mb-1">Requester (PIN or Email)*</label>
+                              <input required type="text" className="w-full border rounded p-2 text-sm" value={manualForm.requester} onChange={e => setManualForm({...manualForm, requester: e.target.value})} placeholder="e.g. 1234 or email@..." />
+                          </div>
+                          <div>
+                              <label className="block text-xs font-bold text-gray-700 mb-1">Property ID (PID)*</label>
+                              <input required type="text" className="w-full border rounded p-2 text-sm" value={manualForm.pid} onChange={e => setManualForm({...manualForm, pid: e.target.value})} placeholder="e.g. 03264" />
+                          </div>
+                      </div>
+
+                      <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Subject*</label>
+                          <input required type="text" className="w-full border rounded p-2 text-sm" value={manualForm.subject} onChange={e => setManualForm({...manualForm, subject: e.target.value})} placeholder="Short summary of issue" />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <label className="block text-xs font-bold text-gray-700 mb-1">Category</label>
+                              <select className="w-full border rounded p-2 text-sm" value={manualForm.category} onChange={e => setManualForm({...manualForm, category: e.target.value})}>
+                                  <option>System Unit</option>
+                                  <option>Laptop</option>
+                                  <option>Printer</option>
+                                  <option>Network/Internet</option>
+                                  <option>Software/OS</option>
+                                  <option>CCTV</option>
+                                  <option>Other</option>
+                              </select>
+                          </div>
+                          <div>
+                              <label className="block text-xs font-bold text-gray-700 mb-1">Severity</label>
+                              <select className="w-full border rounded p-2 text-sm" value={manualForm.severity} onChange={e => setManualForm({...manualForm, severity: e.target.value as TicketSeverity})}>
+                                  <option value={TicketSeverity.MINOR}>Minor</option>
+                                  <option value={TicketSeverity.MAJOR}>Major</option>
+                                  <option value={TicketSeverity.CRITICAL}>Critical</option>
+                              </select>
+                          </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                           <div>
+                              <label className="block text-xs font-bold text-gray-700 mb-1">Location/Dept*</label>
+                              <input required type="text" className="w-full border rounded p-2 text-sm" value={manualForm.location} onChange={e => setManualForm({...manualForm, location: e.target.value})} />
+                          </div>
+                          <div>
+                              <label className="block text-xs font-bold text-gray-700 mb-1">Contact Number*</label>
+                              <input required type="text" className="w-full border rounded p-2 text-sm" value={manualForm.contactNumber} onChange={e => setManualForm({...manualForm, contactNumber: e.target.value})} />
+                          </div>
+                      </div>
+
+                      <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Superior Email*</label>
+                          <input required type="email" className="w-full border rounded p-2 text-sm" value={manualForm.superiorContact} onChange={e => setManualForm({...manualForm, superiorContact: e.target.value})} placeholder="boss@ulticon..." />
+                      </div>
+
+                      <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Description*</label>
+                          <textarea required className="w-full border rounded p-2 text-sm" rows={3} value={manualForm.description} onChange={e => setManualForm({...manualForm, description: e.target.value})} placeholder="Detailed explanation..." />
+                      </div>
+
+                      <div className="pt-2 flex gap-3">
+                          <button type="button" onClick={() => setShowManualModal(false)} className="flex-1 py-2 border rounded text-sm font-bold text-gray-600 hover:bg-gray-50">Cancel</button>
+                          <button type="submit" disabled={isLoading} className="flex-1 py-2 bg-blue-600 text-white rounded text-sm font-bold hover:bg-blue-700 flex items-center justify-center gap-2">
+                              {isLoading && <Loader2 size={16} className="animate-spin"/>}
+                              Submit Ticket
+                          </button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

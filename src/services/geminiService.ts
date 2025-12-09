@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, FunctionDeclaration, Type, Tool } from "@google/genai";
 import { ticketStore } from "../store";
 import { TicketSeverity } from "../types";
@@ -151,8 +152,8 @@ export class GeminiService {
     }
 
     try {
-      // OPTIMIZATION: Limit history to last 15 turns to save tokens and prevent "Quota Exceeded" errors.
-      const MAX_HISTORY = 15;
+      // OPTIMIZATION: Limit history to last 10 turns to save tokens and prevent "Quota Exceeded" errors.
+      const MAX_HISTORY = 10;
       const recentHistory = history.slice(-MAX_HISTORY);
       const formattedHistory = recentHistory.map(h => ({ role: h.role, parts: h.parts }));
 
@@ -248,8 +249,9 @@ export class GeminiService {
       console.error("Gemini API Error:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       
+      // Specifically catch Quota errors to trigger the Manual Modal UI
       if (errorMessage.includes('429') || errorMessage.includes('Quota')) {
-        return { text: "⚠️ **System Busy**: You have reached the message limit. Please wait a moment or click the 'Refresh' button at the top to clear the chat." };
+        return { text: "⚠️ **System Busy**: Sorry, we are unable to process AI transactions. Please input the ticket information manually." };
       }
       
       return { text: `System Error: ${errorMessage}. Please try again.` };
