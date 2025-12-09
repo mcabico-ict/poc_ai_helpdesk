@@ -266,17 +266,22 @@ const AIChat: React.FC = () => {
       {/* Centered Header with UBI Logo */}
       <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white z-10 shrink-0 shadow-sm">
          <div className="flex items-center gap-4">
-             {/* UBI Logo (SVG with Scanlines - Middle Down) */}
+             {/* UBI Logo (SVG with Scanlines - Middle Down - FINER LINES) */}
              <div className="shrink-0 shadow-sm border border-gray-900 rounded bg-black overflow-hidden" style={{ width: '60px', height: '40px' }}>
                 <svg viewBox="0 0 100 60" width="100%" height="100%">
                     <defs>
                         <mask id="ubi-scanlines">
                             <rect x="0" y="0" width="100" height="60" fill="white" />
-                            {/* Horizontal Cut Lines - Starting at y=38 to keep upper part solid */}
-                            <rect x="0" y="38" width="100" height="3" fill="black" />
-                            <rect x="0" y="44" width="100" height="3" fill="black" />
-                            <rect x="0" y="50" width="100" height="3" fill="black" />
-                            <rect x="0" y="56" width="100" height="3" fill="black" />
+                            {/* Fine Horizontal Cut Lines - Starting at y=35 */}
+                            <rect x="0" y="35" width="100" height="1" fill="black" />
+                            <rect x="0" y="38" width="100" height="1" fill="black" />
+                            <rect x="0" y="41" width="100" height="1" fill="black" />
+                            <rect x="0" y="44" width="100" height="1" fill="black" />
+                            <rect x="0" y="47" width="100" height="1" fill="black" />
+                            <rect x="0" y="50" width="100" height="1" fill="black" />
+                            <rect x="0" y="53" width="100" height="1" fill="black" />
+                            <rect x="0" y="56" width="100" height="1" fill="black" />
+                            <rect x="0" y="59" width="100" height="1" fill="black" />
                         </mask>
                     </defs>
                     <rect width="100" height="60" fill="black" />
