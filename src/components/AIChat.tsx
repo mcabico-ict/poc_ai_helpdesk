@@ -266,9 +266,34 @@ const AIChat: React.FC = () => {
       {/* Centered Header with UBI Logo */}
       <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white z-10 shrink-0 shadow-sm">
          <div className="flex items-center gap-4">
-             {/* UBI Logo CSS Recreation */}
-             <div className="w-12 h-10 bg-black rounded flex items-center justify-center shrink-0 shadow-sm border border-gray-800 overflow-hidden">
-                <span className="text-yellow-400 font-black text-2xl tracking-tighter leading-none" style={{ fontFamily: 'Arial Black, sans-serif' }}>UBi</span>
+             {/* UBI Logo (SVG with Scanlines) */}
+             <div className="shrink-0 shadow-sm border border-gray-900 rounded bg-black overflow-hidden" style={{ width: '60px', height: '40px' }}>
+                <svg viewBox="0 0 100 60" width="100%" height="100%">
+                    <defs>
+                        <mask id="ubi-scanlines">
+                            <rect x="0" y="0" width="100" height="60" fill="white" />
+                            {/* Horizontal Cut Lines */}
+                            <rect x="0" y="32" width="100" height="4" fill="black" />
+                            <rect x="0" y="39" width="100" height="4" fill="black" />
+                            <rect x="0" y="46" width="100" height="4" fill="black" />
+                            <rect x="0" y="53" width="100" height="4" fill="black" />
+                        </mask>
+                    </defs>
+                    <rect width="100" height="60" fill="black" />
+                    <text 
+                        x="50%" 
+                        y="50" 
+                        textAnchor="middle" 
+                        fontFamily="Arial Black, Arial, sans-serif" 
+                        fontWeight="900" 
+                        fontSize="38" 
+                        fill="#FFD700" 
+                        mask="url(#ubi-scanlines)"
+                        style={{ letterSpacing: '-2px' }}
+                    >
+                        UBi
+                    </text>
+                </svg>
              </div>
              <div>
                 <h2 className="text-base font-bold text-gray-900 leading-tight">Ulticon Builders, Inc.</h2>
