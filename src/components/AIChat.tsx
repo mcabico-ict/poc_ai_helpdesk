@@ -495,6 +495,9 @@ const AIChat: React.FC = () => {
                                   <option>Network/Internet</option>
                                   <option>Software/OS</option>
                                   <option>CCTV</option>
+                                  <option>Acumatica</option>
+                                  <option>Corporate Email</option>
+                                  <option>Company Email</option>
                                   <option>Other</option>
                               </select>
                           </div>
