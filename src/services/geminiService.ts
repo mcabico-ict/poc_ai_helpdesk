@@ -91,28 +91,40 @@ const tools: Tool[] = [
   }
 ];
 
-// COMPACT SYSTEM INSTRUCTION (Token Optimized)
+// SMART & POLITE SYSTEM INSTRUCTION
 const SYSTEM_INSTRUCTION = `
-You are the "UBI IT Support Assistant". Speak English, Tagalog, or Bisaya.
+You are the "UBI IT Support Assistant" for Ulticon Builders, Inc. (PM-IT-04 Compliant).
+You can speak English, Tagalog, or Bisaya fluently.
 
-**PROTOCOL**
-1. **Identify User**: Ask for Name. NO Titles (Mr/Ms).
-2. **Diagnose**: Ask diagnostic questions. Do not create ticket immediately unless it's a request (ID/Account).
-3. **Scan Attachments**: Check history for "URL:" or uploads. Include in ticket.
+**TONE & ETIQUETTE (CRITICAL)**
+- **Politeness**: When speaking Tagalog or Bisaya, you **MUST** use "po" and "opo" to show respect.
+- **Empathy**: Acknowledge frustration. Be professional but approachable.
+- **Clarity**: Keep answers concise. Avoid robotic walls of text.
+
+**DIAGNOSTIC PROTOCOL (BE PROACTIVE)**
+1. **Identify**: Ask for Name first (Skip formal titles).
+2. **Triaging**:
+   - If user says "Internet slow", ask: "Is this happening to everyone or just your device?"
+   - If user says "Printer not working", ask: "Is it powered on? Is there a paper jam?"
+   - **Do not create a ticket immediately** without gathering basic diagnostic info, unless it is a simple request (e.g., ID creation).
+3. **Attachments**: Continuously scan chat history for file uploads/URLs. If found, ATTACH them to the ticket.
 
 **TICKET CREATION RULES**
-- **Severity**: YOU decide. Do NOT ask user.
-  - **Minor**: Single device/user (PC slow, Mouse, ID Request).
-  - **Major**: Group impact (Dept Printer, WiFi in 1 room).
-  - **Critical**: Company stoppage (Server down, All Internet down).
+- **Severity (AI DECISION)**:
+  - **Minor**: Single User issue (e.g., One PC slow, Mouse broken, ID Request).
+  - **Major**: Departmental issue (e.g., Shared Printer down, WiFi in conference room).
+  - **Critical**: Company-wide stoppage (e.g., Main Server Down, Leased Line Down).
+  - *Do not let the user dictate "Critical" for a minor issue.*
 - **Mandatory**: PID, PIN/Email, Location, Mobile, Superior Email.
-- **Post-Ticket**: Suggest workarounds immediately.
+- **Post-Ticket**: Suggest specific workarounds immediately after generating the Ticket ID.
 
 **SCOPE (STRICT)**
-- **OK**: IT Assets, ERP, Email, CCTV.
-- **NO**: Appliances, Personal devices.
+- **Supported**: IT Assets (Laptops, Desktops, Printers), Systems (Acumatica, UBIAS, Email), CCTV.
+- **Unsupported**: Appliances (Rice Cookers, Microwaves), Personal Cellphones.
 
-**ID REQUESTS**: Must be employed >6 months. Need Name, Position, Dept, Emergency Contact.
+**ID REQUESTS**:
+- Require: Full Name, Position, Project/Dept, Emergency Contact.
+- Check: Employed > 6 months?
 `;
 
 export class GeminiService {
@@ -131,16 +143,13 @@ export class GeminiService {
     }
 
     try {
-      // 1. TOKEN OPTIMIZATION: Limit History Depth
-      // Only keep the last 5 turns to prevent hitting TPM/RPM limits.
-      const MAX_HISTORY = 5;
+      // PAID TIER: Larger History Allowed (20 turns)
+      const MAX_HISTORY = 20; 
       const recentHistory = history.slice(-MAX_HISTORY);
 
-      // 2. TOKEN OPTIMIZATION: Truncate Long Messages
-      // If a user pastes a massive log, truncate it in history so it doesn't eat quota in future turns.
       const formattedHistory = recentHistory.map(h => ({ 
           role: h.role, 
-          parts: [{ text: h.parts[0].text.length > 500 ? h.parts[0].text.substring(0, 500) + "...(truncated)" : h.parts[0].text }] 
+          parts: h.parts 
       }));
 
       const chat = this.client.chats.create({
@@ -148,7 +157,7 @@ export class GeminiService {
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
           tools: tools,
-          temperature: 0.2, // Low temperature for deterministic/strict behavior
+          temperature: 0.2, 
         },
         history: formattedHistory
       });
@@ -234,12 +243,6 @@ export class GeminiService {
     } catch (error: any) {
       console.error("Gemini API Error:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      
-      // Specifically catch Quota errors to trigger the Manual Modal UI
-      if (errorMessage.includes('429') || errorMessage.includes('Quota') || errorMessage.includes('403')) {
-        return { text: "⚠️ **System Busy**: Sorry, we are unable to process AI transactions. Please input the ticket information manually." };
-      }
-      
       return { text: `System Error: ${errorMessage}. Please try again.` };
     }
   }

@@ -1,36 +1,38 @@
+
 #!/bin/bash
 
-# UBI Tech Support - Automated Deployment Script
+# UBI Tech Support - Standalone Deployment Script
+# Target: /var/www/ubi-support
 # Usage: bash deploy.txt
 
 # Stop on any error
 set -e
 
-# git commit -a # Optional: Commit strictly only if you are on dev machine
-
-echo "🚀 Starting Deployment..."
+echo "🚀 Starting Deployment (Standalone)..."
 
 # 1. Pull latest code (Force sync with remote)
-echo "📥 Fetching latest changes..."
-# Fetch all branches
+echo "📥 Fetching latest changes from Git..."
+# We use fetch + reset to handle 'detached HEAD' states often found on build servers
 git fetch --all
-# Force reset to match origin/main exactly (Fixes 'You are not currently on a branch' error)
 git reset --hard origin/main
 
-# 2. CLEANUP: Remove duplicate root files that conflict with src/
-echo "🧹 Cleaning up old root files..."
-rm -f index.tsx index.css types.ts store.ts constants.ts App.tsx
-rm -rf components services
+# 2. CLEANUP: Remove old artifacts if present
+echo "🧹 Cleaning up workspace..."
+rm -rf dist
 
 # 3. Install Dependencies
 echo "📦 Installing Dependencies... "
-rm -rf node_modules package-lock.json
-npm install
+if [ ! -d "node_modules" ]; then
+    npm install
+else
+    # Faster update if node_modules exists
+    npm update
+fi
 
 # 4. Build the Application
 echo "🛠️ Building App..."
 
-# SAFETY CHECK: Look for API Key in environment or .env file
+# Check for API Key in .env
 if [ -z "$API_KEY" ]; then
   if [ -f .env ]; then
     echo "🔑 Loading API Key from .env file..."
@@ -46,20 +48,26 @@ fi
 
 npm run build
 
-# 5. Deploy to Web Server
-echo "🌍 Deploying to Nginx..."
-# Clear old files
-sudo rm -rf /var/www/html/*
+# 5. Deploy to Standalone Directory
+echo "🌍 Deploying to /var/www/ubi-support..."
+
+# Create directory if not exists
+sudo mkdir -p /var/www/ubi-support
+
+# Clear old files in deployment directory
+sudo rm -rf /var/www/ubi-support/*
+
 # Copy new files
-sudo cp -r dist/* /var/www/html/
+sudo cp -r dist/* /var/www/ubi-support/
 
 # 6. Fix Permissions
 echo "🔒 Fixing Permissions..."
-sudo chown -R www-data:www-data /var/www/html
-sudo chmod -R 755 /var/www/html
+sudo chown -R www-data:www-data /var/www/ubi-support
+sudo chmod -R 755 /var/www/ubi-support
 
 # 7. Restart Nginx
-echo "🔄 Restarting Web Server..."
+echo "🔄 Restarting Nginx..."
 sudo systemctl restart nginx
 
-echo "✅ Deployment Complete! Visit http://13.229.219.21"
+echo "✅ Deployment Complete!"
+echo "👉 Ensure your Nginx config points to: /var/www/ubi-support"
