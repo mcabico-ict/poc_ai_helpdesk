@@ -70,7 +70,7 @@ const createTicketTool: FunctionDeclaration = {
       category: { type: Type.STRING, description: "Asset category." },
       description: { type: Type.STRING, description: "Detailed description. For Company IDs, include Emergency Contact info here." },
       location: { type: Type.STRING, description: "Physical location or Department." },
-      severity: { type: Type.STRING, enum: ["Minor", "Major", "Critical"], description: "Urgency." },
+      severity: { type: Type.STRING, enum: ["Minor", "Major", "Critical"], description: "AI-Determined Severity based on impact. Minor=SingleUser, Major=Dept, Critical=CompanyWide." },
       contactNumber: { type: Type.STRING, description: "Mobile number." },
       immediateSuperior: { type: Type.STRING, description: "Superior Name (Optional)." },
       superiorContact: { type: Type.STRING, description: "Superior Email (Required)." },
@@ -91,49 +91,28 @@ const tools: Tool[] = [
   }
 ];
 
+// COMPACT SYSTEM INSTRUCTION (Token Optimized)
 const SYSTEM_INSTRUCTION = `
-You are the "UBI IT Support Assistant".
+You are the "UBI IT Support Assistant". Speak English, Tagalog, or Bisaya.
 
-**LANGUAGE & GREETING**
-- **Languages**: You speak **English**, **Tagalog**, and **Bisaya**. Adjust to the user's preference.
-- **Greeting**: Ask for the user's **Name**. **Do NOT ask for titles** (Mr./Ms./Engr.).
-- **Tone**: Professional but approachable. "Kamusta po kayo?" or "Maayong adlaw" is encouraged if appropriate.
+**PROTOCOL**
+1. **Identify User**: Ask for Name. NO Titles (Mr/Ms).
+2. **Diagnose**: Ask diagnostic questions. Do not create ticket immediately unless it's a request (ID/Account).
+3. **Scan Attachments**: Check history for "URL:" or uploads. Include in ticket.
 
-**SCOPE & BOUNDARIES**
-- **ALLOWED**: 
-  - IT Assets: Laptops, Desktops, Printers, Servers, CCTV.
-  - Services: Acumatica ERP, UBIAS, Workspace/Corporate Email, Drone shots.
-  - **Company ID Requests**: New ID or Replacement.
-- **PROHIBITED**: 
-  - Appliances: Rice Cookers, Ovens, Microwaves, Refrigerators.
-  - Personal devices.
+**TICKET CREATION RULES**
+- **Severity**: YOU decide. Do NOT ask user.
+  - **Minor**: Single device/user (PC slow, Mouse, ID Request).
+  - **Major**: Group impact (Dept Printer, WiFi in 1 room).
+  - **Critical**: Company stoppage (Server down, All Internet down).
+- **Mandatory**: PID, PIN/Email, Location, Mobile, Superior Email.
+- **Post-Ticket**: Suggest workarounds immediately.
 
-**MEMORY & ATTACHMENTS (STRICT)**
-- **Scanning Context**: Before answering or creating a ticket, you MUST scan the entire conversation history for file uploads.
-- **Identify URLs**: Look for user messages containing "URL:" or system confirmations like "I have uploaded a file".
-- **Action**: When calling \`createTicket\`, you **MUST** include these URLs in the \`attachmentUrl\` parameter. 
+**SCOPE (STRICT)**
+- **OK**: IT Assets, ERP, Email, CCTV.
+- **NO**: Appliances, Personal devices.
 
-**POST-TICKET BEHAVIOR (CRITICAL)**
-- After calling \`createTicket\`:
-  1. Confirm the Ticket ID.
-  2. **IMMEDIATELY** suggest temporary workarounds or troubleshooting steps the user can try while waiting for a technician.
-  3. **DO NOT** just say "Wait for a technician". Give value (e.g., "While waiting, please try restarting the router...").
-
-**COMPANY ID REQUEST PROTOCOL**
-1.  **Eligibility Check**: Ask "Have you been employed with Ulticon for at least **6 months**?".
-    - If **NO**: Polite decline. Do not create ticket.
-    - If **YES**: Proceed.
-2.  **Data Collection**:
-    - Full Name, Position, Project/Department.
-    - **Emergency Contact Person**: Name, Address, and Contact Number.
-3.  **Attachments**: Check if user has already uploaded **Signature** and **2x2 Photo**. If not, ask for them.
-4.  **Disclaimer**: You MUST inform the user: "Note: This ticket is subject for approval by the HR Department."
-
-**CORE BEHAVIOR**
-1.  **Context Holding**: If you create a ticket, **HOLD that Ticket ID**.
-2.  **Troubleshooting**: Ask diagnostic questions before creating a ticket unless the user just wants to upload requirements (like for IDs).
-
-**SAFETY**: No hardware opening. No dangerous tools.
+**ID REQUESTS**: Must be employed >6 months. Need Name, Position, Dept, Emergency Contact.
 `;
 
 export class GeminiService {
@@ -152,17 +131,24 @@ export class GeminiService {
     }
 
     try {
-      // OPTIMIZATION: Limit history to last 10 turns to save tokens and prevent "Quota Exceeded" errors.
-      const MAX_HISTORY = 10;
+      // 1. TOKEN OPTIMIZATION: Limit History Depth
+      // Only keep the last 5 turns to prevent hitting TPM/RPM limits.
+      const MAX_HISTORY = 5;
       const recentHistory = history.slice(-MAX_HISTORY);
-      const formattedHistory = recentHistory.map(h => ({ role: h.role, parts: h.parts }));
+
+      // 2. TOKEN OPTIMIZATION: Truncate Long Messages
+      // If a user pastes a massive log, truncate it in history so it doesn't eat quota in future turns.
+      const formattedHistory = recentHistory.map(h => ({ 
+          role: h.role, 
+          parts: [{ text: h.parts[0].text.length > 500 ? h.parts[0].text.substring(0, 500) + "...(truncated)" : h.parts[0].text }] 
+      }));
 
       const chat = this.client.chats.create({
         model: this.modelName,
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
           tools: tools,
-          temperature: 0.2, 
+          temperature: 0.2, // Low temperature for deterministic/strict behavior
         },
         history: formattedHistory
       });
@@ -250,7 +236,7 @@ export class GeminiService {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       
       // Specifically catch Quota errors to trigger the Manual Modal UI
-      if (errorMessage.includes('429') || errorMessage.includes('Quota')) {
+      if (errorMessage.includes('429') || errorMessage.includes('Quota') || errorMessage.includes('403')) {
         return { text: "⚠️ **System Busy**: Sorry, we are unable to process AI transactions. Please input the ticket information manually." };
       }
       

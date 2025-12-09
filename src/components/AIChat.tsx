@@ -263,15 +263,16 @@ const AIChat: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-white relative">
-      {/* Centered Header */}
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white z-10 shrink-0">
-         <div className="flex items-center gap-3">
-             <div className="w-10 h-10 bg-gray-900 rounded-xl flex items-center justify-center text-white shadow-lg shadow-gray-200">
-                <Bot size={20} />
+      {/* Centered Header with UBI Logo */}
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white z-10 shrink-0 shadow-sm">
+         <div className="flex items-center gap-4">
+             {/* UBI Logo CSS Recreation */}
+             <div className="w-12 h-10 bg-black rounded flex items-center justify-center shrink-0 shadow-sm border border-gray-800 overflow-hidden">
+                <span className="text-yellow-400 font-black text-2xl tracking-tighter leading-none" style={{ fontFamily: 'Arial Black, sans-serif' }}>UBi</span>
              </div>
              <div>
-                <h2 className="text-sm font-bold text-gray-900">UBI TechSupport AI</h2>
-                <p className="text-xs text-gray-400">Procedure Aware (PM-IT-04)</p>
+                <h2 className="text-base font-bold text-gray-900 leading-tight">Ulticon Builders, Inc.</h2>
+                <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">IT Support AI &bull; PM-IT-04</p>
              </div>
          </div>
          <div className="flex gap-2">
@@ -509,6 +510,11 @@ const AIChat: React.FC = () => {
                                   <option value={TicketSeverity.CRITICAL}>Critical</option>
                               </select>
                           </div>
+                      </div>
+                      
+                      {/* Severity Guidance */}
+                      <div className="bg-yellow-50 p-2 rounded border border-yellow-100 text-[10px] text-yellow-800">
+                          <strong>Note:</strong> Critical is for company-wide outages (Server/Internet Down). Use Minor for single user issues.
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
