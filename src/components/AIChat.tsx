@@ -266,17 +266,17 @@ const AIChat: React.FC = () => {
       {/* Centered Header with UBI Logo */}
       <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white z-10 shrink-0 shadow-sm">
          <div className="flex items-center gap-4">
-             {/* UBI Logo (SVG with Scanlines) */}
+             {/* UBI Logo (SVG with Scanlines - Middle Down) */}
              <div className="shrink-0 shadow-sm border border-gray-900 rounded bg-black overflow-hidden" style={{ width: '60px', height: '40px' }}>
                 <svg viewBox="0 0 100 60" width="100%" height="100%">
                     <defs>
                         <mask id="ubi-scanlines">
                             <rect x="0" y="0" width="100" height="60" fill="white" />
-                            {/* Horizontal Cut Lines */}
-                            <rect x="0" y="32" width="100" height="4" fill="black" />
-                            <rect x="0" y="39" width="100" height="4" fill="black" />
-                            <rect x="0" y="46" width="100" height="4" fill="black" />
-                            <rect x="0" y="53" width="100" height="4" fill="black" />
+                            {/* Horizontal Cut Lines - Starting at y=38 to keep upper part solid */}
+                            <rect x="0" y="38" width="100" height="3" fill="black" />
+                            <rect x="0" y="44" width="100" height="3" fill="black" />
+                            <rect x="0" y="50" width="100" height="3" fill="black" />
+                            <rect x="0" y="56" width="100" height="3" fill="black" />
                         </mask>
                     </defs>
                     <rect width="100" height="60" fill="black" />
