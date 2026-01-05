@@ -47,7 +47,12 @@ class TicketStore {
     return this.isLoading;
   }
 
+  /**
+   * Logs activity to the "Audit Logs" sheet.
+   * Cross-origin requests to Apps Script work best with 'no-cors' and 'text/plain'.
+   */
   async logAudit(activity: string, userMessage: string = "", aiMessage: string = "") {
+    if (!GOOGLE_SCRIPT_URL) return;
     try {
       await fetch(GOOGLE_SCRIPT_URL, {
         method: "POST",
@@ -61,7 +66,7 @@ class TicketStore {
         }),
       });
     } catch (err) {
-      console.warn("Audit log failed", err);
+      console.warn("Audit log failed to send:", err);
     }
   }
 

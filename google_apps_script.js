@@ -1,7 +1,7 @@
 
 // -----------------------------------------------------------------------------
 // UBI TECH SUPPORT AI - BACKEND SCRIPT
-// VERSION: 4.3 (Includes Audit Logging)
+// VERSION: 4.4 (Robust Audit Logging)
 // -----------------------------------------------------------------------------
 
 const SPREADSHEET_ID = "1F41Jf4o8fJNWA2Laon1FFLe3lWvnqiUOVumUJKG6VMk"; 
@@ -21,24 +21,30 @@ function forceAuth() {
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(5000)) {
+  if (!lock.tryLock(10000)) {
      return ContentService.createTextOutput(JSON.stringify({ error: "Server busy." })).setMimeType(ContentService.MimeType.JSON);
   }
 
   try {
+    if (!e.postData || !e.postData.contents) {
+      return ContentService.createTextOutput(JSON.stringify({ error: "No payload received." })).setMimeType(ContentService.MimeType.JSON);
+    }
+
     const data = JSON.parse(e.postData.contents);
     const action = data.action || "create";
 
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
     // =========================================================
-    // 📊 AUDIT LOGGING (NEW)
+    // 📊 AUDIT LOGGING
     // =========================================================
     if (action === "logAudit") {
-      const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
       let auditSheet = ss.getSheetByName(AUDIT_SHEET_NAME);
       if (!auditSheet) {
         auditSheet = ss.insertSheet(AUDIT_SHEET_NAME);
         auditSheet.appendRow(["DateTime", "Activity", "UserMessage", "AIMessage"]);
         auditSheet.getRange(1, 1, 1, 4).setFontWeight("bold").setBackground("#f3f3f3");
+        auditSheet.setFrozenRows(1);
       }
       
       auditSheet.appendRow([
@@ -71,7 +77,6 @@ function doPost(e) {
       return ContentService.createTextOutput(JSON.stringify({ success: true, url: file.getUrl() })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const sheet = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
 
     // =========================================================
