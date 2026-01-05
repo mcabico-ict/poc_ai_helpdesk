@@ -1,7 +1,7 @@
 
 // -----------------------------------------------------------------------------
 // UBI TECH SUPPORT AI - BACKEND SCRIPT
-// VERSION: 4.5 (Strict Audit Logging)
+// VERSION: 4.6 (Audit Logging Fixed)
 // -----------------------------------------------------------------------------
 
 const SPREADSHEET_ID = "1F41Jf4o8fJNWA2Laon1FFLe3lWvnqiUOVumUJKG6VMk"; 
@@ -27,13 +27,14 @@ function doPost(e) {
       if (!sheet) {
         sheet = ss.insertSheet(AUDIT_SHEET);
         sheet.appendRow(["DateTime", "Activity", "UserMessage", "AIMessage"]);
-        sheet.getRange(1, 1, 1, 4).setFontWeight("bold").setBackground("#e5e7eb");
+        sheet.getRange(1, 1, 1, 4).setFontWeight("bold").setBackground("#f8fafc");
         sheet.setFrozenRows(1);
       }
       
+      const now = new Date();
       sheet.appendRow([
-        new Date(),
-        data.activity || "Unknown",
+        now,
+        data.activity || "System Event",
         data.userMessage || "",
         data.aiMessage || ""
       ]);
@@ -55,8 +56,8 @@ function doPost(e) {
       return ContentService.createTextOutput(JSON.stringify({ success: true, id: data.id })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // Handle other actions (updateLog, closeTicket, etc)
-    // ...
+    // Default response for unknown action
+    return ContentService.createTextOutput(JSON.stringify({ success: true })).setMimeType(ContentService.MimeType.JSON);
 
   } catch (e) {
     return ContentService.createTextOutput(JSON.stringify({ error: e.toString() })).setMimeType(ContentService.MimeType.JSON);

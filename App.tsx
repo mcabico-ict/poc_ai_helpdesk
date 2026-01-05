@@ -14,28 +14,27 @@ const App: React.FC = () => {
   }, []);
 
   const handleVerify = () => {
-    // Log the successful login to Audit Logs
-    ticketStore.logAudit('Captcha Success', '', '');
-    
     setIsVerified(true);
     sessionStorage.setItem('ubi_verified', 'true');
+    // Audit log for successful entry
+    ticketStore.logAudit('Captcha Success', '', '');
   };
 
-  const handleReset = () => {
+  const handleLogout = () => {
     sessionStorage.removeItem('ubi_verified');
     setIsVerified(false);
   };
 
-  if (isVerified === null) return null; // Prevent flicker
+  if (isVerified === null) return null;
 
   if (!isVerified) {
     return <Captcha onVerify={handleVerify} />;
   }
 
   return (
-    <div className="relative flex h-screen bg-gray-50 overflow-hidden font-sans text-gray-900 animate-in fade-in duration-500">
+    <div className="relative flex h-screen bg-white overflow-hidden font-sans text-gray-900">
       <div className="w-full h-full flex flex-col">
-        <AIChat onReset={handleReset} />
+        <AIChat onLogout={handleLogout} />
       </div>
       <TicketManager />
     </div>
