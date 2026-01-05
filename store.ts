@@ -77,8 +77,11 @@ class TicketStore {
           ...t,
           id: String(t.id),
           pid: String(t.pid),
+          technician: String(t.technician || 'Unassigned'),
           employeePin: t.employeePin ? String(t.employeePin) : undefined,
           requesterEmail: t.requesterEmail ? String(t.requesterEmail) : 'N/A',
+          // Correctly map attachmentUrl from the backend data
+          attachmentUrl: t.attachmentUrl || undefined,
       })).reverse();
     } catch (err) {
       console.error("Failed to fetch tickets", err);
@@ -106,7 +109,9 @@ class TicketStore {
       status: TicketStatus.OPEN,
       severity: ticketData.severity,
       contactNumber: ticketData.contactNumber,
-      troubleshootingLog: ticketData.troubleshootingLog
+      troubleshootingLog: ticketData.troubleshootingLog,
+      // Store attachmentUrl in the new ticket object
+      attachmentUrl: ticketData.attachmentUrl
     };
     this.tickets = [newTicket, ...this.tickets];
     this.notify();

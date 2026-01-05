@@ -39,6 +39,8 @@ export interface Ticket {
   immediateSuperior?: string; // New: Name/Position of superior
   superiorContact?: string; // New: Email or Phone of superior
   troubleshootingLog?: string; // New: Summary of steps taken
+  // Added attachmentUrl to resolve type errors in TicketManager
+  attachmentUrl?: string; 
 }
 
 export interface PMSSchedule {

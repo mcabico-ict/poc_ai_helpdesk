@@ -129,7 +129,8 @@ You can speak English, Tagalog, or Bisaya fluently.
 
 export class GeminiService {
   private client: GoogleGenAI;
-  private modelName = "gemini-2.5-flash";
+  // Use gemini-3-flash-preview as recommended for general text tasks
+  private modelName = "gemini-3-flash-preview";
   private apiKey: string;
 
   constructor() {
@@ -143,7 +144,7 @@ export class GeminiService {
     }
 
     try {
-      // PAID TIER: Larger History Allowed (20 turns)
+      // History limit for context window management
       const MAX_HISTORY = 20; 
       const recentHistory = history.slice(-MAX_HISTORY);
 
