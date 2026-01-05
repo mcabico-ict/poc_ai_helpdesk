@@ -49,6 +49,26 @@ class TicketStore {
     return this.error;
   }
 
+  // Added logAudit method to handle activity logging to Google Sheets via audit log sheet
+  async logAudit(activity: string, userMessage: string = "", aiMessage: string = "") {
+    if (!GOOGLE_SCRIPT_URL) return;
+    try {
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({
+          action: "logAudit",
+          activity,
+          userMessage,
+          aiMessage
+        }),
+      });
+    } catch (err) {
+      console.warn("Audit log failed to send:", err);
+    }
+  }
+
   async fetchTickets() {
     if (!GOOGLE_SCRIPT_URL) {
         console.warn("Google Script URL not set.");

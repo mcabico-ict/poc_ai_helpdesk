@@ -1,8 +1,8 @@
+
 import { GoogleGenAI, FunctionDeclaration, Type, Tool } from "@google/genai";
 import { ticketStore } from "../store";
 import { TicketSeverity } from "../types";
 
-// ... (Tools remain the same as previous, repeating for completeness of file replacement) ...
 const getTicketDetailsTool: FunctionDeclaration = {
   name: "getTicketDetails",
   description: "Retrieves details of a technical support ticket by its Ticket ID.",
@@ -63,7 +63,6 @@ const tools: Tool[] = [
   { functionDeclarations: [getTicketDetailsTool, searchTicketsTool, createTicketTool, updateTicketLogTool] }
 ];
 
-// UPDATED SYSTEM INSTRUCTION
 const SYSTEM_INSTRUCTION = `
 You are the "UBI IT Support Assistant".
 
@@ -95,16 +94,16 @@ You are the "UBI IT Support Assistant".
 
 export class GeminiService {
   private client: GoogleGenAI;
-  private modelName = "gemini-2.5-flash";
-  private apiKey: string;
+  // Updated model to latest gemini-3-flash-preview
+  private modelName = "gemini-3-flash-preview";
 
   constructor() {
-    this.apiKey = process.env.API_KEY || ''; 
-    this.client = new GoogleGenAI({ apiKey: this.apiKey });
+    // Correctly using direct API key initialization
+    this.client = new GoogleGenAI({ apiKey: process.env.API_KEY });
   }
 
   async sendMessage(history: { role: string; parts: { text: string }[] }[], newMessage: string) {
-    if (!this.apiKey) return { text: "Error: API Key is missing.", isToolResponse: false };
+    if (!process.env.API_KEY) return { text: "Error: API Key is missing.", isToolResponse: false };
 
     try {
       const formattedHistory = history.map(h => ({ role: h.role, parts: h.parts }));
@@ -125,7 +124,6 @@ export class GeminiService {
             console.log(`Tool executing: ${fc.name}`);
             let responseContent = "";
             
-            // ... (Tool implementation logic same as previous) ...
             if (fc.name === 'getTicketDetails') {
                 const args = fc.args as any;
                 const ticket = ticketStore.getTicketById(args.ticketId);
@@ -166,6 +164,7 @@ export class GeminiService {
             functionResponses.push({ name: fc.name, response: { result: responseContent }, id: fc.id });
           }
         }
+        // Respond to tool calls using chat.sendMessage as per guidelines
         const finalResponse = await chat.sendMessage({ message: functionResponses.map(fr => ({ functionResponse: fr })) });
         return { text: finalResponse.text, isToolResponse: true };
       }
