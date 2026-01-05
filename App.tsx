@@ -16,7 +16,6 @@ const App: React.FC = () => {
   const handleVerify = () => {
     setIsVerified(true);
     sessionStorage.setItem('ubi_verified', 'true');
-    // Audit log for successful entry
     ticketStore.logAudit('Captcha Success', '', '');
   };
 

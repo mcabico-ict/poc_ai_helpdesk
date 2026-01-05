@@ -1,14 +1,7 @@
 
 import { Ticket, TicketSeverity, TicketStatus } from "./types";
 
-// The Google Apps Script Web App URL provided by the user (New Deployment)
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxx6jNAsLDBCucxp6p_KFv0MOb0-iS3x9i_LoPlbbJISq4kgjrkMFSNrjLFfRyzOC1Ghw/exec";
-
-/* 
-   IMPORTANT: YOU MUST UPDATE YOUR GOOGLE APPS SCRIPT DEPLOYMENT!
-   1. Paste the code from the chat into Apps Script.
-   2. Deploy -> Manage Deployments -> Edit -> Version: "New version" -> Deploy.
-*/
 
 type Listener = () => void;
 
@@ -16,7 +9,7 @@ class TicketStore {
   private tickets: Ticket[] = [];
   private listeners: Listener[] = [];
   private isLoading: boolean = false;
-  private error: string | null = null;
+  private currentUserQuery: string | null = null;
 
   constructor() {
     this.fetchTickets();
@@ -30,7 +23,15 @@ class TicketStore {
     return this.tickets.find(t => t.id === id);
   }
 
-  // New method to search tickets
+  setCurrentUserQuery(query: string | null) {
+    this.currentUserQuery = query;
+    this.notify();
+  }
+
+  getCurrentUserQuery(): string | null {
+    return this.currentUserQuery;
+  }
+
   searchTickets(query: string): Ticket[] {
     if (!query) return [];
     const lowerQuery = query.toLowerCase().trim();
@@ -45,11 +46,6 @@ class TicketStore {
     return this.isLoading;
   }
 
-  getLastError(): string | null {
-    return this.error;
-  }
-
-  // Added logAudit method to handle activity logging to Google Sheets via audit log sheet
   async logAudit(activity: string, userMessage: string = "", aiMessage: string = "") {
     if (!GOOGLE_SCRIPT_URL) return;
     try {
@@ -70,99 +66,30 @@ class TicketStore {
   }
 
   async fetchTickets() {
-    if (!GOOGLE_SCRIPT_URL) {
-        console.warn("Google Script URL not set.");
-        return;
-    }
-
+    if (!GOOGLE_SCRIPT_URL) return;
     this.isLoading = true;
-    this.error = null;
     this.notify();
-
     try {
       const response = await fetch(`${GOOGLE_SCRIPT_URL}?t=${Date.now()}`);
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
       const data = await response.json();
-      
       this.tickets = data.map((t: any) => ({
           ...t,
           id: String(t.id),
           pid: String(t.pid),
-          // FORCE STRING CONVERSION: Handles cases where Google Sheet returns a number (e.g. 40884)
           employeePin: t.employeePin ? String(t.employeePin) : undefined,
           requesterEmail: t.requesterEmail ? String(t.requesterEmail) : 'N/A',
-          techNotes: t.techNotes || undefined,
-          immediateSuperior: t.immediateSuperior || undefined,
-          superiorContact: t.superiorContact || undefined,
-          troubleshootingLog: t.troubleshootingLog || undefined
       })).reverse();
-      
     } catch (err) {
       console.error("Failed to fetch tickets", err);
-      this.error = "Sync Failed. Please check internet connection.";
     } finally {
       this.isLoading = false;
       this.notify();
     }
   }
 
-  // Update Ticket Log (Append Only)
-  async updateTicketLog(ticketId: string, textToAppend: string) {
-    // 1. Format the log entry locally with timestamp
-    const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    const formattedLogEntry = `[${timestamp}]: ${textToAppend}`;
-
-    // 2. Optimistic Update (Update UI immediately)
-    const ticketIndex = this.tickets.findIndex(t => t.id === ticketId);
-    if (ticketIndex !== -1) {
-        const updatedTicket = { ...this.tickets[ticketIndex] };
-        updatedTicket.troubleshootingLog = (updatedTicket.troubleshootingLog || "") + `\n${formattedLogEntry}`;
-        this.tickets[ticketIndex] = updatedTicket;
-        this.notify();
-    }
-
-    // 3. Send to Google Sheet (Action: updateLog)
-    try {
-        await fetch(GOOGLE_SCRIPT_URL, {
-            method: "POST",
-            mode: "no-cors",
-            headers: {},
-            body: JSON.stringify({
-                action: "updateLog",
-                ticketId: ticketId,
-                // FIX: Sending BOTH property names to ensure compatibility with different script versions
-                textToAppend: formattedLogEntry, 
-                log: formattedLogEntry 
-            }),
-        });
-        
-        // Background refresh to confirm the sheet actually updated
-        setTimeout(() => this.fetchTickets(), 3000);
-        
-    } catch (err) {
-        console.error("Failed to update log in Google Sheet", err);
-    }
-  }
-
-  async addTicket(ticketData: {
-      subject: string;
-      category: string;
-      description: string;
-      location: string;
-      severity: TicketSeverity;
-      pid: string;
-      requester: string;
-      contactNumber: string;
-      immediateSuperior: string;
-      superiorContact: string;
-      troubleshootingLog: string;
-  }): Promise<Ticket> {
-    
+  async addTicket(ticketData: any): Promise<Ticket> {
     const isEmail = ticketData.requester.includes('@');
-    
-    const initialLog = ticketData.troubleshootingLog || "No troubleshooting steps recorded by AI.";
-
     const newTicket: Ticket = {
       id: Math.floor(10000 + Math.random() * 90000).toString(),
       dateCreated: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
@@ -179,41 +106,27 @@ class TicketStore {
       status: TicketStatus.OPEN,
       severity: ticketData.severity,
       contactNumber: ticketData.contactNumber,
-      techNotes: '',
-      troubleshootingLog: initialLog
+      troubleshootingLog: ticketData.troubleshootingLog
     };
-
-    // Optimistic UI update
     this.tickets = [newTicket, ...this.tickets];
     this.notify();
-
     try {
         await fetch(GOOGLE_SCRIPT_URL, {
             method: "POST",
             mode: "no-cors",
-            headers: {},
-            body: JSON.stringify(newTicket),
+            body: JSON.stringify({ ...newTicket, action: "create" }),
         });
         setTimeout(() => this.fetchTickets(), 2000);
-    } catch (err) {
-        console.error("Failed to save to Google Sheet", err);
-        this.error = "Ticket created locally but failed to save to cloud.";
-        this.notify();
-    }
-
+    } catch (err) {}
     return newTicket;
   }
 
   subscribe(listener: Listener): () => void {
     this.listeners.push(listener);
-    return () => {
-      this.listeners = this.listeners.filter(l => l !== listener);
-    };
+    return () => { this.listeners = this.listeners.filter(l => l !== listener); };
   }
 
-  private notify() {
-    this.listeners.forEach(l => l());
-  }
+  private notify() { this.listeners.forEach(l => l()); }
 }
 
 export const ticketStore = new TicketStore();
