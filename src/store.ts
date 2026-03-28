@@ -1,7 +1,7 @@
 
 import { Ticket, TicketSeverity, TicketStatus } from "./types";
 
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxx6jNAsLDBCucxp6p_KFv0MOb0-iS3x9i_LoPlbbJISq4kgjrkMFSNrjLFfRyzOC1Ghw/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxCuIFkNCOzK6MdqRiw6fVWmD7ImDWeClsIQcegN8HE9c-Rp7DS07tZqdgPMgJBK52Hcw/exec";
 
 type Listener = () => void;
 
@@ -86,8 +86,20 @@ class TicketStore {
     this.isSyncFailed = false;
     this.notify();
     try {
-      const response = await fetch(`${GOOGLE_SCRIPT_URL}?t=${Date.now()}`);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      // Use a clean URL without Workspace-specific segments
+      const cleanUrl = GOOGLE_SCRIPT_URL.replace(/\/a\/[^/]+\//, '/');
+      const response = await fetch(`${cleanUrl}?t=${Date.now()}`, {
+        method: 'GET',
+        cache: 'no-store'
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new Error("Access Denied: Ensure script is deployed to 'Anyone'.");
+        }
+        throw new Error(`Server Error (${response.status})`);
+      }
+      
       const data = await response.json();
       this.tickets = data.map((t: any) => ({
           ...t,
@@ -103,8 +115,8 @@ class TicketStore {
       })).reverse();
       this.isSyncFailed = false;
     } catch (err) {
-      console.error("Failed to fetch tickets", err);
-      this.error = "Sync Failed. Check internet or API URL.";
+      console.error("Sync Error:", err);
+      this.error = err instanceof Error ? err.message : "Connection Failed";
       this.isSyncFailed = true;
     } finally {
       this.isLoading = false;

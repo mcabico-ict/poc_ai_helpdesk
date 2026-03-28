@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #f8fafc; font-family: 'Inter', sans-serif; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .status-open { color: #8b5cf6; background: #f5f3ff; }
+    .status-progress { color: #3b82f6; background: #eff6ff; }
+    .status-done { color: #10b981; background: #ecfdf5; }
+    .stale-warning { border-left: 4px solid #ef4444; }
+  </style>
+</head>
+<body class="p-4 md:p-8">
+  <div id="app" class="max-w-7xl mx-auto space-y-8">
+    
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h1 class="text-2xl font-black text-gray-900 uppercase tracking-tight">UBI IT Technician Terminal</h1>
+        <p class="text-sm text-gray-500" id="user-display">Loading session...</p>
+      </div>
+      <button onclick="loadData()" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 transition-all shadow-lg">Refresh Data</button>
+    </div>
+
+    <!-- Stats Dashboard -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="card p-6 border-t-4 border-green-500">
+        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Closed This Month</p>
+        <h2 class="text-4xl font-black text-gray-900" id="stat-closed-month">0</h2>
+      </div>
+      <div class="card p-6 border-t-4 border-blue-500">
+        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Total Open Tickets</p>
+        <h2 class="text-4xl font-black text-gray-900" id="stat-open-total">0</h2>
+      </div>
+      <div class="card p-6 border-t-4 border-red-500">
+        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Stale (>24 Hours)</p>
+        <h2 class="text-4xl font-black text-red-600" id="stat-stale">0</h2>
+      </div>
+    </div>
+
+    <!-- Tech List -->
+    <div class="card overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+        <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wider">Technician Performance (Today)</h3>
+      </div>
+      <div class="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="tech-list">
+        <!-- Techs injected here -->
+      </div>
+    </div>
+
+    <!-- Ticket Table -->
+    <div class="card overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+        <h3 class="font-bold text-gray-700 text-sm uppercase tracking-wider">Active Tickets</h3>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead>
+            <tr class="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-400 font-bold">
+              <th class="px-6 py-4">ID / Date</th>
+              <th class="px-6 py-4">Requester / PID</th>
+              <th class="px-6 py-4">Issue</th>
+              <th class="px-6 py-4">Technician</th>
+              <th class="px-6 py-4">Status</th>
+              <th class="px-6 py-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="ticket-body" class="divide-y divide-gray-50">
+            <!-- Tickets injected here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let currentUserEmail = "";
+
+    function loadData() {
+      document.getElementById('ticket-body').innerHTML = '<tr><td colspan="6" class="p-10 text-center text-gray-400 animate-pulse">Synchronizing with Sheet...</td></tr>';
+      google.script.run
+        .withSuccessHandler(renderDashboard)
+        .withFailureHandler(err => {
+          alert("Sync Failed: " + err.message);
+          document.getElementById('ticket-body').innerHTML = '<tr><td colspan="6" class="p-10 text-center text-red-500 font-bold">Error: ' + err.message + '</td></tr>';
+        })
+        .getTechData();
+    }
+
+    function renderDashboard(data) {
+      if (!data) return;
+      currentUserEmail = data.userEmail;
+      document.getElementById('user-display').innerText = "Logged in as: " + currentUserEmail;
+      
+      // Update Stats
+      document.getElementById('stat-closed-month').innerText = data.stats.closedMonth;
+      document.getElementById('stat-open-total').innerText = data.stats.openTotal;
+      document.getElementById('stat-stale').innerText = data.stats.stale24h;
+
+      // Render Techs
+      const techList = document.getElementById('tech-list');
+      techList.innerHTML = "";
+      Object.keys(data.stats.techs).forEach(tech => {
+        const s = data.stats.techs[tech];
+        techList.innerHTML += `
+          <div class="p-4 rounded-xl border border-gray-100 bg-white">
+            <p class="text-[10px] font-bold text-gray-400 truncate mb-2">${tech}</p>
+            <div class="flex justify-between items-end">
+              <div><p class="text-xs text-gray-500">Open</p><p class="text-xl font-bold">${s.open}</p></div>
+              <div class="text-right"><p class="text-xs text-gray-500">Closed Today</p><p class="text-xl font-bold text-green-600">${s.closedToday}</p></div>
+            </div>
+          </div>
+        `;
+      });
+
+      // Render Tickets
+      const ticketBody = document.getElementById('ticket-body');
+      ticketBody.innerHTML = "";
+      
+      if (data.tickets.length === 0) {
+        ticketBody.innerHTML = '<tr><td colspan="6" class="p-10 text-center text-gray-400">No active tickets found.</td></tr>';
+        return;
+      }
+
+      data.tickets.forEach(t => {
+        const isStale = (new Date() - new Date(t.dateCreated)) > (24 * 60 * 60 * 1000) && (t.status !== 'Done' && t.status !== 'Closed');
+        const statusClass = t.status === 'Open' ? 'status-open' : (t.status === 'In-Progress' ? 'status-progress' : 'status-done');
+        
+        ticketBody.innerHTML += `
+          <tr class="${isStale ? 'stale-warning bg-red-50/30' : ''} hover:bg-gray-50 transition-colors">
+            <td class="px-6 py-4">
+              <p class="font-mono text-xs font-bold text-gray-400">#${t.id}</p>
+              <p class="text-[10px] text-gray-400">${t.dateCreated}</p>
+            </td>
+            <td class="px-6 py-4">
+              <p class="text-xs font-bold text-gray-900">${t.requesterEmail || t.employeePin}</p>
+              <p class="text-[10px] text-gray-400">PID: ${t.pid}</p>
+            </td>
+            <td class="px-6 py-4">
+              <p class="text-xs font-bold text-gray-800">${t.subject}</p>
+              <p class="text-[10px] text-gray-400 truncate max-w-xs">${t.description}</p>
+            </td>
+            <td class="px-6 py-4">
+              <span class="text-xs font-medium ${t.technician === 'Unassigned' ? 'text-red-400 italic' : 'text-gray-700'}">${t.technician}</span>
+            </td>
+            <td class="px-6 py-4">
+              <span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${statusClass}">${t.status}</span>
+            </td>
+            <td class="px-6 py-4 text-right space-x-2">
+              ${(t.status !== 'Done' && t.status !== 'Closed') ? `
+                <button onclick="assignToMe('${t.id}')" class="text-[10px] font-bold text-blue-600 hover:underline">Assign to Me</button>
+                <button onclick="closeTicket('${t.id}')" class="text-[10px] font-bold text-green-600 hover:underline">Close</button>
+              ` : '<span class="text-[10px] text-gray-300">Resolved</span>'}
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function assignToMe(id) {
+      if(confirm('Assign Ticket #' + id + ' to yourself?')) {
+        google.script.run
+          .withSuccessHandler(loadData)
+          .withFailureHandler(err => alert("Assignment Failed: " + err.message))
+          .assignTicket(id, currentUserEmail);
+      }
+    }
+
+    function closeTicket(id) {
+      const reason = prompt('Closing Reason:');
+      if (reason) {
+        google.script.run
+          .withSuccessHandler(loadData)
+          .withFailureHandler(err => alert("Closing Failed: " + err.message))
+          .closeTicket(id, reason);
+      }
+    }
+
+    // Initial Load
+    loadData();
+  </script>
+</body>
+</html>
