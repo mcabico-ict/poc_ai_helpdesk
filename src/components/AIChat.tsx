@@ -14,6 +14,14 @@ const AIChat: React.FC = () => {
       timestamp: new Date()
     }
   ]);
+  const [apiKeyMissing, setApiKeyMissing] = useState(false);
+
+  useEffect(() => {
+      const key = process.env.GEMINI_API_KEY;
+      if (!key || key === '' || key.includes('REPLACE')) {
+          setApiKeyMissing(true);
+      }
+  }, []);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -126,6 +134,15 @@ const AIChat: React.FC = () => {
 
       <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-gray-50/30">
         <div className="max-w-3xl mx-auto w-full space-y-8 pb-4">
+            {apiKeyMissing && (
+                <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-center gap-3 text-red-600 animate-pulse">
+                    <AlertCircle size={20} />
+                    <div className="text-xs">
+                        <p className="font-bold">Configuration Error</p>
+                        <p>Gemini API Key is missing. Please set GEMINI_API_KEY in your environment before building.</p>
+                    </div>
+                </div>
+            )}
             {messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`flex max-w-[85%] gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>

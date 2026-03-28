@@ -243,7 +243,15 @@ export class GeminiService {
 
     } catch (error: any) {
       console.error("Gemini API Error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      let errorMessage = error instanceof Error ? error.message : "Unknown error";
+      
+      // Provide more context for common production errors
+      if (errorMessage.includes("403") || errorMessage.includes("PERMISSION_DENIED")) {
+          errorMessage = "Access Denied (403). This typically means your API Key has 'Referrer Restrictions' that don't include your production IP/Domain, or the Gemini API is not enabled for this key. Please check your key settings at https://aistudio.google.com/app/apikey";
+      } else if (errorMessage.includes("fetch")) {
+          errorMessage = "Network Error. The browser blocked the request. This can happen if you are using HTTP instead of HTTPS, or due to CORS restrictions.";
+      }
+      
       return { text: `System Error: ${errorMessage}. Please try again.` };
     }
   }

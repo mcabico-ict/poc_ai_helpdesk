@@ -10,16 +10,19 @@ const TicketManager: React.FC = () => {
   const [filteredTickets, setFilteredTickets] = useState<Ticket[]>([]);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(ticketStore.getError());
 
   useEffect(() => {
     const unsubscribe = ticketStore.subscribe(() => {
       setTickets(ticketStore.getTickets());
       setCurrentUserQuery(ticketStore.getCurrentUserQuery());
       setIsSyncing(ticketStore.isSyncing());
+      setSyncError(ticketStore.getError());
     });
     // Initialize
     setCurrentUserQuery(ticketStore.getCurrentUserQuery());
     setIsSyncing(ticketStore.isSyncing());
+    setSyncError(ticketStore.getError());
     return unsubscribe;
   }, []);
 
@@ -78,6 +81,7 @@ const TicketManager: React.FC = () => {
                     <p className="text-[10px] text-gray-400 uppercase tracking-wider">ID: {currentUserQuery}</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    {syncError && <span className="text-[10px] text-red-500 font-bold animate-pulse">Sync Error</span>}
                     <button onClick={() => ticketStore.fetchTickets()} className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors rounded-lg hover:bg-gray-100">
                         <RefreshCw size={14} className={isSyncing ? "animate-spin" : ""} />
                     </button>

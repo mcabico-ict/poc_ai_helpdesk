@@ -11,6 +11,7 @@ class TicketStore {
   private isLoading: boolean = false;
   private error: string | null = null;
   private currentUserQuery: string | null = null;
+  private isSyncFailed: boolean = false;
 
   constructor() {
     this.fetchTickets();
@@ -18,6 +19,10 @@ class TicketStore {
 
   getTickets(): Ticket[] {
     return this.tickets;
+  }
+
+  getError(): string | null {
+    return this.error;
   }
 
   getTicketById(id: string): Ticket | undefined {
@@ -47,6 +52,10 @@ class TicketStore {
     return this.isLoading;
   }
 
+  hasSyncFailed(): boolean {
+    return this.isSyncFailed;
+  }
+
   /**
    * Logs activity to the "Audit Logs" sheet.
    * Cross-origin requests to Apps Script work best with 'no-cors' and 'text/plain'.
@@ -74,6 +83,7 @@ class TicketStore {
     if (!GOOGLE_SCRIPT_URL) return;
     this.isLoading = true;
     this.error = null;
+    this.isSyncFailed = false;
     this.notify();
     try {
       const response = await fetch(`${GOOGLE_SCRIPT_URL}?t=${Date.now()}`);
@@ -91,9 +101,11 @@ class TicketStore {
           troubleshootingLog: t.troubleshootingLog || undefined,
           attachmentUrl: t.attachmentUrl || undefined
       })).reverse();
+      this.isSyncFailed = false;
     } catch (err) {
       console.error("Failed to fetch tickets", err);
-      this.error = "Sync Failed.";
+      this.error = "Sync Failed. Check internet or API URL.";
+      this.isSyncFailed = true;
     } finally {
       this.isLoading = false;
       this.notify();
