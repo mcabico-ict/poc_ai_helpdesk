@@ -134,7 +134,7 @@ export class GeminiService {
   private apiKey: string;
 
   constructor() {
-    this.apiKey = process.env.API_KEY || ''; 
+    this.apiKey = process.env.GEMINI_API_KEY || ''; 
     this.client = new GoogleGenAI({ apiKey: this.apiKey });
   }
 
